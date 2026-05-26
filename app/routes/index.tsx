@@ -1,274 +1,401 @@
-import {
-  ArrowDownIcon,
-  BotIcon,
-  ChevronRightIcon,
-  CreditCardIcon,
-  DatabaseIcon,
-  LockIcon,
-  MailIcon,
-  UploadIcon,
-} from 'lucide-react'
+import type { ReactNode } from 'react'
+import { useEffect, useState } from 'react'
+import { TriangleAlertIcon } from 'lucide-react'
+
+const STORE_KEY = 'exam-countdown-v1'
+const DAY_MS = 24 * 60 * 60 * 1000
+const HOUR_MS = 60 * 60 * 1000
+const DEFAULT_SLEEP_HOURS = '7'
+const DEFAULT_TODO_AMOUNT = '300'
+const DEFAULT_TODO_UNIT = 'ページ'
 
 export default function Page() {
+  let [data, setData] = useState(getDefaultData)
+  let [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    let stored = window.localStorage.getItem(STORE_KEY)
+
+    if (stored) {
+      setData({
+        ...getDefaultData(),
+        ...JSON.parse(stored),
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    window.localStorage.setItem(STORE_KEY, JSON.stringify(data))
+  }, [data])
+
+  useEffect(() => {
+    let frame = 0
+    let tick = () => {
+      setNow(Date.now())
+      frame = window.requestAnimationFrame(tick)
+    }
+
+    frame = window.requestAnimationFrame(tick)
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
+
+  let metrics = getMetrics(data, now)
+  let statusText = metrics.ended
+    ? '終了しました。試験日時を未来に設定してください。'
+    : '残り時間は今この瞬間も削られています。'
+
+  function update(name, value) {
+    setData((current) => ({
+      ...current,
+      [name]: value,
+    }))
+  }
+
   return (
-    <div className="min-h-screen bg-base-100">
-      {/* ========== DELETE THIS SECTION WHEN READY ========== */}
-      <section className="border-b border-success/20 bg-success/10 py-8">
-        <div className="mx-auto max-w-4xl px-6 text-center">
-          <div className="mb-3 flex items-center justify-center gap-3">
-            <PingDot />
-            <span className="text-xl font-bold text-success">You're Live!</span>
-          </div>
-          <p className="text-success">
-            Your app is deployed and running. Now make it yours.
-          </p>
-          <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <QuickStep label="1. Open" code="app/routes/index.tsx" />
-            <QuickStep label="2. Delete this section" arrow />
-            <QuickStep label="3. Edit everything below" arrow />
-          </div>
-        </div>
-      </section>
+    <main className="min-h-screen bg-[#07080d] text-zinc-100">
+      <style>{pageStyles}</style>
 
-      {/* Hero */}
-      <section className="relative flex min-h-[90vh] items-center justify-center px-6">
-        <div className="text-center">
-          {/* Badge */}
-          <div className="mb-6 badge gap-2 badge-outline border-base-300 px-4 py-3 backdrop-blur-sm">
-            <PingDot className="size-1.5" />
-            Built with Gista.js
-          </div>
-
-          <h1 className="mx-auto max-w-4xl text-4xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
-            Your AI writes the code.
-            <br />
-            <span className="bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent">
-              You ship the product.
+      <section className="mx-auto grid min-h-screen w-full max-w-7xl gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[360px_1fr] lg:px-8">
+        <aside className="input-panel self-start border border-zinc-800 bg-zinc-950/90 p-5 shadow-2xl shadow-black/40 lg:sticky lg:top-6">
+          <div className="mb-6 flex items-center gap-3 border-b border-zinc-800 pb-5">
+            <span className="grid size-11 place-items-center rounded bg-red-500/15 text-red-400">
+              <TriangleAlertIcon className="size-6" />
             </span>
-          </h1>
-
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-balance text-base-content/70 sm:text-xl">
-            Build real software without being an engineer. From vibe to live,
-            lightspeed.
-          </p>
-
-          <div className="mt-10 flex justify-center gap-4">
-            <button className="btn shadow-lg btn-lg btn-primary">
-              Get Started
-            </button>
-            <button className="btn btn-ghost btn-lg">
-              See How It Works
-              <ChevronRightIcon className="size-4" />
-            </button>
+            <div>
+              <p className="text-sm font-bold text-red-300">EXAM DEADLINE</p>
+              <h1 className="text-2xl font-black text-white">
+                試験カウントダウン
+              </h1>
+            </div>
           </div>
-        </div>
-        <div className="absolute bottom-8 animate-bounce text-base-content/30">
-          <ArrowDownIcon className="size-6" />
-        </div>
-      </section>
 
-      {/* Features */}
-      <section className="bg-base-200/50 py-24">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="text-center">
-            <span className="mb-4 badge badge-outline badge-primary">
-              What You Get
-            </span>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Ship real software from day one
+          <div className="grid gap-5">
+            <Field label="試験の本番日時">
+              <input
+                className="control"
+                type="datetime-local"
+                value={data.examAt}
+                onChange={(event) => update('examAt', event.target.value)}
+              />
+            </Field>
+
+            <Field label="1日あたりの平均睡眠時間">
+              <div className="split-control">
+                <input
+                  className="control"
+                  type="number"
+                  min="0"
+                  max="24"
+                  step="0.5"
+                  value={data.sleepHours}
+                  onChange={(event) =>
+                    update('sleepHours', event.target.value)
+                  }
+                />
+                <span>時間</span>
+              </div>
+            </Field>
+
+            <Field label="長期ToDoの総量">
+              <div className="todo-grid">
+                <input
+                  className="control"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={data.todoAmount}
+                  onChange={(event) =>
+                    update('todoAmount', event.target.value)
+                  }
+                />
+                <input
+                  className="control"
+                  type="text"
+                  value={data.todoUnit}
+                  placeholder="ページ"
+                  onChange={(event) => update('todoUnit', event.target.value)}
+                />
+              </div>
+            </Field>
+          </div>
+
+          <p
+            className={`mt-6 border-l-4 px-4 py-3 text-sm font-bold ${
+              metrics.ended
+                ? 'border-red-500 bg-red-500/10 text-red-200'
+                : 'border-orange-400 bg-orange-400/10 text-orange-100'
+            }`}
+          >
+            {statusText}
+          </p>
+        </aside>
+
+        <section className="grid content-start gap-5">
+          <div className="deadline-strip border border-red-500/30 bg-red-950/25 px-5 py-4">
+            <span>本番まで</span>
+            <strong>{formatTarget(data.examAt)}</strong>
+          </div>
+
+          <div className="timer-grid">
+            <Metric
+              label="試験までの残り日数"
+              value={metrics.ended ? '0.000000' : formatNumber(metrics.days, 6)}
+              unit="日"
+            />
+            <Metric
+              label="試験までの総残り時間"
+              value={
+                metrics.ended ? '0.0000' : formatNumber(metrics.totalHours, 4)
+              }
+              unit="時間"
+            />
+            <Metric
+              label="睡眠を除いた有効残り時間"
+              value={
+                metrics.ended
+                  ? '0.0000'
+                  : formatNumber(metrics.effectiveHours, 4)
+              }
+              unit="時間"
+            />
+          </div>
+
+          <section className="quota-panel border border-zinc-800 bg-zinc-950/80 p-6">
+            <p className="text-sm font-bold text-zinc-400">TODAY'S QUOTA</p>
+            <h2 className="mt-3 text-2xl font-black leading-tight text-white sm:text-3xl">
+              {metrics.ended
+                ? '終了しました'
+                : `試験に間に合わせるには、1日あたり ${formatNumber(
+                    metrics.quota,
+                    2,
+                  )} ${metrics.unit} の消化が必要です`}
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-base-content/70">
-              Everything wired up. No setup headaches. Start building features,
-              not fighting config.
+            <p className="mt-4 text-base text-zinc-400">
+              入力内容は自動保存されます。ページを閉じても、次回そのまま再開できます。
             </p>
-          </div>
-
-          <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {Features.map((f) => (
-              <FeatureCard key={f.title} {...f} />
-            ))}
-          </div>
-        </div>
+          </section>
+        </section>
       </section>
-
-      {/* How It Works */}
-      <section className="py-24">
-        <div className="mx-auto max-w-4xl px-6">
-          <div className="text-center">
-            <span className="mb-4 badge badge-outline badge-secondary">
-              How it works
-            </span>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              From idea to live in minutes
-            </h2>
-          </div>
-
-          <div className="mt-16 space-y-12">
-            <Step
-              number={1}
-              title="Use This Template"
-              description="Click 'Use this template' on GitHub, import to Vercel. Your app is live before you write a line of code."
-            />
-            <Step
-              number={2}
-              title="Tell Your AI What to Build"
-              description="Open in Cursor or VS Code with Claude. Describe what you want. Watch it appear."
-            />
-            <Step
-              number={3}
-              title="Push and Ship"
-              description="Every git push auto-deploys. Your users see changes in seconds."
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="bg-linear-to-br from-primary to-secondary py-24 text-primary-content">
-        <div className="mx-auto max-w-4xl px-6 text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
-            Ready to build your thing?
-          </h2>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-primary-content/80">
-            You came to ship. Let's make it happen.
-          </p>
-
-          <div className="mx-auto mt-10 flex max-w-md gap-3">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="input flex-1 bg-white/10 text-primary-content placeholder:text-primary-content/50"
-            />
-            <button
-              type="button"
-              className="btn border-white/20 bg-white/10 text-primary-content hover:bg-white/20"
-            >
-              Get Early Access
-            </button>
-          </div>
-
-          <p className="mt-4 text-sm text-primary-content/60">
-            $0 to start. Scale when you're ready.
-          </p>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-base-200 py-12">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <div className="size-8 rounded-lg bg-primary"></div>
-            <span className="font-semibold">Your Product</span>
-          </div>
-
-          <p className="text-sm text-base-content/60">
-            © {new Date().getFullYear()} Your Company. All rights reserved.
-          </p>
-        </div>
-      </footer>
-    </div>
+    </main>
   )
 }
 
-const Features = [
-  {
-    icon: LockIcon,
-    color: 'text-primary',
-    title: 'Login Ready',
-    description:
-      'Signup, login, password reset — already wired. Add Google login with one config change.',
-  },
-  {
-    icon: DatabaseIcon,
-    color: 'text-secondary',
-    title: 'Database Included',
-    description:
-      'SQLite locally, Turso in production. No Docker, no setup. Just works.',
-  },
-  {
-    icon: MailIcon,
-    color: 'text-accent',
-    title: 'Beautiful Emails',
-    description:
-      'Welcome emails, password recovery, notifications. Swap providers anytime.',
-  },
-  {
-    icon: BotIcon,
-    color: 'text-info',
-    title: 'AI Superpowers',
-    description:
-      'Streaming, reasoning, web search, tool calls. Your AI assistant is ready to help.',
-  },
-  {
-    icon: CreditCardIcon,
-    color: 'text-success',
-    title: 'Payments Wired',
-    description:
-      "Subscriptions, one-time payments, webhooks. Start charging when you're ready.",
-  },
-  {
-    icon: UploadIcon,
-    color: 'text-warning',
-    title: 'File Uploads',
-    description:
-      'Images, PDFs, CSVs — drag, drop, done. S3 or Cloudflare R2 ready.',
-  },
-]
-
-function FeatureCard({ icon: Icon, color, title, description }) {
+function Field({ label, children }: FieldProps) {
   return (
-    <div className="card bg-base-100 shadow-sm transition-shadow hover:-translate-y-1 hover:shadow-xl">
-      <div className="card-body">
-        <Icon className={`mb-2 size-8 ${color}`} />
-        <h3 className="card-title text-lg">{title}</h3>
-        <p className="text-base-content/70">{description}</p>
-      </div>
-    </div>
+    <label className="grid gap-2">
+      <span className="text-sm font-bold text-zinc-300">{label}</span>
+      {children}
+    </label>
   )
 }
 
-function Step({ number, title, description }) {
+function Metric({ label, value, unit }: MetricProps) {
   return (
-    <div className="flex gap-6">
-      <div className="flex flex-col items-center">
-        <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-content">
-          {number}
-        </div>
-        {number < 3 && <div className="mt-4 h-full w-px bg-base-300"></div>}
+    <article className="metric border border-zinc-800 bg-zinc-950/80 p-5">
+      <p className="text-sm font-bold text-zinc-400">{label}</p>
+      <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
+        <span className="pb-2 text-lg font-black text-zinc-300">あと</span>
+        <strong className="metric-value font-black tabular-nums text-red-500">
+          {value}
+        </strong>
+        <span className="pb-2 text-2xl font-black text-orange-300">
+          {unit}
+        </span>
       </div>
-      <div className="pb-8">
-        <h3 className="text-xl font-semibold">{title}</h3>
-        <p className="mt-2 text-base-content/70">{description}</p>
+      <div className="mt-4 h-1 overflow-hidden rounded bg-zinc-800">
+        <div className="burn-bar h-full rounded bg-red-500"></div>
       </div>
-    </div>
+    </article>
   )
 }
 
-type QuickStepProps = { label: string; code?: string; arrow?: boolean }
+function getDefaultData() {
+  let date = new Date()
+  date.setDate(date.getDate() + 45)
+  date.setHours(9, 0, 0, 0)
 
-function QuickStep({ label, code, arrow }: QuickStepProps) {
-  return (
-    <>
-      {arrow && <span className="hidden text-base-content/30 sm:block">→</span>}
-      <div className="flex items-center gap-2 rounded-lg bg-base-100 px-3 py-1.5 text-sm text-base-content/70 shadow-sm">
-        {label}
-        {code && (
-          <code className="rounded bg-base-200 px-2 py-0.5 font-mono">
-            {code}
-          </code>
-        )}
-      </div>
-    </>
-  )
+  return {
+    examAt: toInputValue(date),
+    sleepHours: DEFAULT_SLEEP_HOURS,
+    todoAmount: DEFAULT_TODO_AMOUNT,
+    todoUnit: DEFAULT_TODO_UNIT,
+  }
 }
 
-function PingDot({ className = '' }: { className?: string }) {
-  return (
-    <div className="inline-grid *:[grid-area:1/1]">
-      <div
-        className={`status animate-ping status-success [animation-duration:1.5s] ${className}`}
-      ></div>
-      <div className={`status status-success ${className}`}></div>
-    </div>
-  )
+function getMetrics(data, now) {
+  let examMs = new Date(data.examAt).getTime()
+  let diffMs = examMs - now
+  let ended = !Number.isFinite(examMs) || diffMs <= 0
+  let safeDiff = ended ? 0 : diffMs
+  let days = safeDiff / DAY_MS
+  let totalHours = safeDiff / HOUR_MS
+  let sleepHours = Number(data.sleepHours) || 0
+  let todoAmount = Number(data.todoAmount) || 0
+  let effectiveHours = Math.max(0, totalHours - days * sleepHours)
+  let quota = days > 0 ? todoAmount / days : 0
+  let unit = data.todoUnit.trim() || '単位'
+
+  return {
+    days,
+    totalHours,
+    effectiveHours,
+    quota,
+    unit,
+    ended,
+  }
+}
+
+function toInputValue(date) {
+  let offsetMs = date.getTimezoneOffset() * 60 * 1000
+  let local = new Date(date.getTime() - offsetMs)
+
+  return local.toISOString().slice(0, 16)
+}
+
+function formatNumber(value, digits) {
+  return new Intl.NumberFormat('ja-JP', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value)
+}
+
+function formatTarget(value) {
+  let date = new Date(value)
+
+  if (!Number.isFinite(date.getTime())) {
+    return '未設定'
+  }
+
+  return new Intl.DateTimeFormat('ja-JP', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+const pageStyles = `
+  .input-panel,
+  .metric,
+  .quota-panel,
+  .deadline-strip {
+    border-radius: 8px;
+  }
+
+  .control {
+    min-height: 46px;
+    width: 100%;
+    border: 1px solid rgb(63 63 70);
+    border-radius: 6px;
+    background: rgb(24 24 27);
+    padding: 0 12px;
+    color: white;
+    outline: none;
+  }
+
+  .control:focus {
+    border-color: rgb(248 113 113);
+    box-shadow: 0 0 0 3px rgb(239 68 68 / 0.18);
+  }
+
+  .split-control {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .split-control span {
+    color: rgb(212 212 216);
+    font-weight: 800;
+  }
+
+  .todo-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(92px, 0.6fr);
+    gap: 10px;
+  }
+
+  .deadline-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .deadline-strip span {
+    color: rgb(254 202 202);
+    font-weight: 900;
+  }
+
+  .deadline-strip strong {
+    color: white;
+    font-size: 1.1rem;
+  }
+
+  .timer-grid {
+    display: grid;
+    gap: 16px;
+  }
+
+  .metric-value {
+    font-size: 3rem;
+    line-height: 0.9;
+    text-shadow: 0 0 18px rgb(239 68 68 / 0.65);
+    animation: danger-pulse 850ms ease-in-out infinite;
+  }
+
+  .burn-bar {
+    animation: burn 1200ms linear infinite;
+    transform-origin: left;
+  }
+
+  @media (min-width: 760px) {
+    .timer-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .metric-value {
+      font-size: 4.5rem;
+    }
+  }
+
+  @keyframes danger-pulse {
+    0%,
+    100% {
+      transform: translateY(0);
+      filter: brightness(1);
+    }
+
+    50% {
+      transform: translateY(-1px);
+      filter: brightness(1.25);
+    }
+  }
+
+  @keyframes burn {
+    0% {
+      transform: scaleX(1);
+      opacity: 1;
+    }
+
+    100% {
+      transform: scaleX(0.18);
+      opacity: 0.45;
+    }
+  }
+`
+
+type FieldProps = {
+  label: string
+  children: ReactNode
+}
+
+type MetricProps = {
+  label: string
+  value: string
+  unit: string
 }

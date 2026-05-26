@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>試験カウントダウン</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: #07080d;
+        color: #f4f4f5;
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        background:
+          linear-gradient(180deg, #07080d 0%, #101116 48%, #07080d 100%);
+      }
+
+      main {
+        display: grid;
+        width: min(100%, 1280px);
+        min-height: 100vh;
+        margin: 0 auto;
+        gap: 32px;
+        padding: 24px 16px;
+      }
+
+      .panel,
+      .metric,
+      .quota,
+      .deadline {
+        border: 1px solid #27272a;
+        border-radius: 8px;
+        background: rgba(9, 9, 11, 0.9);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+      }
+
+      .panel {
+        align-self: start;
+        padding: 20px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 24px;
+        border-bottom: 1px solid #27272a;
+        padding-bottom: 20px;
+      }
+
+      .alert-icon {
+        display: grid;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        border-radius: 8px;
+        background: rgba(239, 68, 68, 0.14);
+        color: #f87171;
+        font-size: 26px;
+        font-weight: 900;
+      }
+
+      .brand p,
+      .quota-kicker {
+        margin: 0;
+        color: #fca5a5;
+        font-size: 0.85rem;
+        font-weight: 900;
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+        color: #fff;
+        line-height: 1.1;
+      }
+
+      h1 {
+        margin-top: 4px;
+        font-size: 1.7rem;
+        font-weight: 900;
+      }
+
+      .fields {
+        display: grid;
+        gap: 18px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        color: #d4d4d8;
+        font-size: 0.9rem;
+        font-weight: 800;
+      }
+
+      input {
+        width: 100%;
+        min-height: 46px;
+        border: 1px solid #3f3f46;
+        border-radius: 6px;
+        background: #18181b;
+        padding: 0 12px;
+        color: #fff;
+        font: inherit;
+        outline: none;
+      }
+
+      input:focus {
+        border-color: #f87171;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+      }
+
+      .with-unit {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .unit-text {
+        color: #e4e4e7;
+        font-weight: 900;
+      }
+
+      .todo-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(92px, 0.6fr);
+        gap: 10px;
+      }
+
+      .status {
+        margin: 24px 0 0;
+        border-left: 4px solid #fb923c;
+        background: rgba(251, 146, 60, 0.1);
+        padding: 12px 14px;
+        color: #ffedd5;
+        font-size: 0.9rem;
+        font-weight: 900;
+      }
+
+      .status.ended {
+        border-color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+        color: #fecaca;
+      }
+
+      .content {
+        display: grid;
+        align-content: start;
+        gap: 20px;
+      }
+
+      .deadline {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border-color: rgba(239, 68, 68, 0.35);
+        background: rgba(69, 10, 10, 0.28);
+        padding: 16px 20px;
+      }
+
+      .deadline span {
+        color: #fecaca;
+        font-weight: 900;
+      }
+
+      .deadline strong {
+        color: #fff;
+        font-size: 1.1rem;
+      }
+
+      .metrics {
+        display: grid;
+        gap: 16px;
+      }
+
+      .metric {
+        padding: 20px;
+      }
+
+      .metric-label {
+        margin: 0;
+        color: #a1a1aa;
+        font-size: 0.9rem;
+        font-weight: 900;
+      }
+
+      .metric-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 4px 12px;
+        margin-top: 12px;
+      }
+
+      .metric-value {
+        color: #ef4444;
+        font-size: 3rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 1000;
+        line-height: 0.9;
+        text-shadow: 0 0 18px rgba(239, 68, 68, 0.65);
+        animation: danger-pulse 850ms ease-in-out infinite;
+      }
+
+      .metric-prefix {
+        padding-bottom: 7px;
+        color: #d4d4d8;
+        font-size: 1.05rem;
+        font-weight: 900;
+      }
+
+      .metric-unit {
+        padding-bottom: 7px;
+        color: #fdba74;
+        font-size: 1.6rem;
+        font-weight: 900;
+      }
+
+      .burn {
+        height: 4px;
+        margin-top: 18px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #27272a;
+      }
+
+      .burn span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: #ef4444;
+        animation: burn 1200ms linear infinite;
+        transform-origin: left;
+      }
+
+      .quota {
+        padding: 24px;
+      }
+
+      .quota h2 {
+        margin-top: 12px;
+        font-size: 1.65rem;
+        font-weight: 1000;
+      }
+
+      .quota strong {
+        color: #fb923c;
+      }
+
+      .save-note {
+        margin: 16px 0 0;
+        color: #a1a1aa;
+        line-height: 1.7;
+      }
+
+      @media (min-width: 760px) {
+        main {
+          grid-template-columns: 360px minmax(0, 1fr);
+          padding: 28px;
+        }
+
+        .panel {
+          position: sticky;
+          top: 28px;
+        }
+
+        .metrics {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .metric-value {
+          font-size: 4.5rem;
+        }
+      }
+
+      @keyframes danger-pulse {
+        0%,
+        100% {
+          transform: translateY(0);
+          filter: brightness(1);
+        }
+
+        50% {
+          transform: translateY(-1px);
+          filter: brightness(1.25);
+        }
+      }
+
+      @keyframes burn {
+        0% {
+          transform: scaleX(1);
+          opacity: 1;
+        }
+
+        100% {
+          transform: scaleX(0.18);
+          opacity: 0.45;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <aside class="panel">
+        <div class="brand">
+          <span class="alert-icon">!</span>
+          <div>
+            <p>EXAM DEADLINE</p>
+            <h1>試験カウントダウン</h1>
+          </div>
+        </div>
+
+        <section class="fields" aria-label="入力エリア">
+          <label>
+            試験の本番日時
+            <input id="examAt" type="datetime-local" />
+          </label>
+
+          <label>
+            1日あたりの平均睡眠時間
+            <span class="with-unit">
+              <input
+                id="sleepHours"
+                type="number"
+                min="0"
+                max="24"
+                step="0.5"
+              />
+              <span class="unit-text">時間</span>
+            </span>
+          </label>
+
+          <label>
+            長期ToDoの総量
+            <span class="todo-grid">
+              <input id="todoAmount" type="number" min="0" step="0.1" />
+              <input id="todoUnit" type="text" placeholder="ページ" />
+            </span>
+          </label>
+        </section>
+
+        <p id="status" class="status">
+          残り時間は今この瞬間も削られています。
+        </p>
+      </aside>
+
+      <section class="content">
+        <div class="deadline">
+          <span>本番まで</span>
+          <strong id="targetText">未設定</strong>
+        </div>
+
+        <section class="metrics" aria-label="カウントダウン">
+          <article class="metric">
+            <p class="metric-label">試験までの残り日数</p>
+            <div class="metric-line">
+              <span class="metric-prefix">あと</span>
+              <strong id="daysLeft" class="metric-value">0.000000</strong>
+              <span class="metric-unit">日</span>
+            </div>
+            <div class="burn"><span></span></div>
+          </article>
+
+          <article class="metric">
+            <p class="metric-label">試験までの総残り時間</p>
+            <div class="metric-line">
+              <span class="metric-prefix">あと</span>
+              <strong id="hoursLeft" class="metric-value">0.0000</strong>
+              <span class="metric-unit">時間</span>
+            </div>
+            <div class="burn"><span></span></div>
+          </article>
+
+          <article class="metric">
+            <p class="metric-label">睡眠を除いた有効残り時間</p>
+            <div class="metric-line">
+              <span class="metric-prefix">あと</span>
+              <strong id="activeHoursLeft" class="metric-value">0.0000</strong>
+              <span class="metric-unit">時間</span>
+            </div>
+            <div class="burn"><span></span></div>
+          </article>
+        </section>
+
+        <section class="quota">
+          <p class="quota-kicker">TODAY'S QUOTA</p>
+          <h2 id="quotaText">
+            試験に間に合わせるには、1日あたり <strong>0.00 ページ</strong>
+            の消化が必要です
+          </h2>
+          <p class="save-note">
+            入力内容はlocalStorageに自動保存されます。ページを閉じても、次回そのまま再開できます。
+          </p>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const STORE_KEY = 'exam-countdown-v1'
+      const DAY_MS = 24 * 60 * 60 * 1000
+      const HOUR_MS = 60 * 60 * 1000
+      const inputs = {
+        examAt: document.getElementById('examAt'),
+        sleepHours: document.getElementById('sleepHours'),
+        todoAmount: document.getElementById('todoAmount'),
+        todoUnit: document.getElementById('todoUnit'),
+      }
+      const targets = {
+        status: document.getElementById('status'),
+        targetText: document.getElementById('targetText'),
+        daysLeft: document.getElementById('daysLeft'),
+        hoursLeft: document.getElementById('hoursLeft'),
+        activeHoursLeft: document.getElementById('activeHoursLeft'),
+        quotaText: document.getElementById('quotaText'),
+      }
+      let state = loadState()
+
+      applyStateToInputs()
+      bindInputs()
+      requestAnimationFrame(tick)
+
+      function getDefaultState() {
+        let date = new Date()
+        date.setDate(date.getDate() + 45)
+        date.setHours(9, 0, 0, 0)
+
+        return {
+          examAt: toInputValue(date),
+          sleepHours: '7',
+          todoAmount: '300',
+          todoUnit: 'ページ',
+        }
+      }
+
+      function loadState() {
+        let fallback = getDefaultState()
+        let saved = localStorage.getItem(STORE_KEY)
+
+        if (!saved) {
+          return fallback
+        }
+
+        return {
+          ...fallback,
+          ...JSON.parse(saved),
+        }
+      }
+
+      function saveState() {
+        localStorage.setItem(STORE_KEY, JSON.stringify(state))
+      }
+
+      function applyStateToInputs() {
+        inputs.examAt.value = state.examAt
+        inputs.sleepHours.value = state.sleepHours
+        inputs.todoAmount.value = state.todoAmount
+        inputs.todoUnit.value = state.todoUnit
+      }
+
+      function bindInputs() {
+        Object.keys(inputs).forEach((name) => {
+          inputs[name].addEventListener('input', () => {
+            state[name] = inputs[name].value
+            saveState()
+            render()
+          })
+        })
+      }
+
+      function tick() {
+        render()
+        requestAnimationFrame(tick)
+      }
+
+      function render() {
+        let metrics = getMetrics()
+
+        targets.targetText.textContent = formatTarget(state.examAt)
+        targets.daysLeft.textContent = metrics.ended
+          ? '0.000000'
+          : formatNumber(metrics.days, 6)
+        targets.hoursLeft.textContent = metrics.ended
+          ? '0.0000'
+          : formatNumber(metrics.totalHours, 4)
+        targets.activeHoursLeft.textContent = metrics.ended
+          ? '0.0000'
+          : formatNumber(metrics.activeHours, 4)
+
+        if (metrics.ended) {
+          targets.status.textContent =
+            '終了しました。試験日時を未来に設定してください。'
+          targets.status.classList.add('ended')
+          targets.quotaText.textContent = '終了しました'
+          return
+        }
+
+        targets.status.textContent =
+          '残り時間は今この瞬間も削られています。'
+        targets.status.classList.remove('ended')
+        targets.quotaText.textContent = `試験に間に合わせるには、1日あたり ${formatNumber(
+          metrics.quota,
+          2,
+        )} ${metrics.unit} の消化が必要です`
+      }
+
+      function getMetrics() {
+        let examMs = new Date(state.examAt).getTime()
+        let diffMs = examMs - Date.now()
+        let ended = !Number.isFinite(examMs) || diffMs <= 0
+        let safeDiff = ended ? 0 : diffMs
+        let days = safeDiff / DAY_MS
+        let totalHours = safeDiff / HOUR_MS
+        let sleepHours = Number(state.sleepHours) || 0
+        let todoAmount = Number(state.todoAmount) || 0
+        let activeHours = Math.max(0, totalHours - days * sleepHours)
+        let quota = days > 0 ? todoAmount / days : 0
+        let unit = state.todoUnit.trim() || '単位'
+
+        return {
+          days,
+          totalHours,
+          activeHours,
+          quota,
+          unit,
+          ended,
+        }
+      }
+
+      function toInputValue(date) {
+        let offsetMs = date.getTimezoneOffset() * 60 * 1000
+        let local = new Date(date.getTime() - offsetMs)
+
+        return local.toISOString().slice(0, 16)
+      }
+
+      function formatNumber(value, digits) {
+        return new Intl.NumberFormat('ja-JP', {
+          minimumFractionDigits: digits,
+          maximumFractionDigits: digits,
+        }).format(value)
+      }
+
+      function formatTarget(value) {
+        let date = new Date(value)
+
+        if (!Number.isFinite(date.getTime())) {
+          return '未設定'
+        }
+
+        return new Intl.DateTimeFormat('ja-JP', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        }).format(date)
+      }
+    </script>
+  </body>
+</html>
