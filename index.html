@@ -24,21 +24,22 @@
         min-height: 100vh;
         margin: 0;
         background:
+          radial-gradient(circle at 50% 0%, rgba(127, 29, 29, 0.22), transparent 34rem),
           linear-gradient(180deg, #07080d 0%, #101116 48%, #07080d 100%);
       }
 
       main {
         display: grid;
-        width: min(100%, 1280px);
+        width: min(100%, 1320px);
         min-height: 100vh;
         margin: 0 auto;
-        gap: 32px;
+        gap: 24px;
         padding: 24px 16px;
       }
 
       .panel,
       .metric,
-      .quota,
+      .section-card,
       .deadline {
         border: 1px solid #27272a;
         border-radius: 8px;
@@ -73,24 +74,34 @@
       }
 
       .brand p,
-      .quota-kicker {
+      .kicker {
         margin: 0;
         color: #fca5a5;
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         font-weight: 900;
+        letter-spacing: 0;
       }
 
       h1,
-      h2 {
+      h2,
+      h3,
+      p {
         margin: 0;
-        color: #fff;
-        line-height: 1.1;
       }
 
       h1 {
         margin-top: 4px;
+        color: #fff;
         font-size: 1.7rem;
         font-weight: 900;
+        line-height: 1.1;
+      }
+
+      h2 {
+        color: #fff;
+        font-size: 1.35rem;
+        font-weight: 1000;
+        line-height: 1.2;
       }
 
       .fields {
@@ -106,6 +117,11 @@
         font-weight: 800;
       }
 
+      input,
+      button {
+        font: inherit;
+      }
+
       input {
         width: 100%;
         min-height: 46px;
@@ -114,13 +130,57 @@
         background: #18181b;
         padding: 0 12px;
         color: #fff;
-        font: inherit;
         outline: none;
+      }
+
+      input[type="checkbox"] {
+        width: 20px;
+        min-height: 20px;
+        accent-color: #ef4444;
       }
 
       input:focus {
         border-color: #f87171;
         box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+      }
+
+      button {
+        min-height: 44px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        padding: 0 14px;
+        color: #fff;
+        font-weight: 900;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.48;
+      }
+
+      .primary-button {
+        background: #dc2626;
+        box-shadow: 0 0 22px rgba(220, 38, 38, 0.28);
+      }
+
+      .primary-button:hover {
+        background: #ef4444;
+      }
+
+      .ghost-button {
+        border-color: #3f3f46;
+        background: #18181b;
+      }
+
+      .ghost-button:hover {
+        border-color: #fb923c;
+      }
+
+      .danger-button {
+        border-color: rgba(239, 68, 68, 0.5);
+        background: rgba(127, 29, 29, 0.35);
+        color: #fecaca;
       }
 
       .with-unit {
@@ -135,14 +195,28 @@
         font-weight: 900;
       }
 
-      .todo-grid {
+      .todo-grid,
+      .task-grid,
+      .log-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(92px, 0.6fr);
         gap: 10px;
       }
 
+      .todo-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(92px, 0.6fr);
+      }
+
+      .task-grid {
+        grid-template-columns: minmax(0, 1.4fr) minmax(90px, 0.7fr) minmax(88px, 0.65fr);
+      }
+
+      .log-grid {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+      }
+
       .status {
-        margin: 24px 0 0;
+        margin: 22px 0 0;
         border-left: 4px solid #fb923c;
         background: rgba(251, 146, 60, 0.1);
         padding: 12px 14px;
@@ -160,7 +234,7 @@
       .content {
         display: grid;
         align-content: start;
-        gap: 20px;
+        gap: 18px;
       }
 
       .deadline {
@@ -184,20 +258,23 @@
         font-size: 1.1rem;
       }
 
-      .metrics {
+      .metrics,
+      .dashboard-grid {
         display: grid;
-        gap: 16px;
+        gap: 14px;
       }
 
-      .metric {
+      .metric,
+      .section-card {
         padding: 20px;
       }
 
-      .metric-label {
-        margin: 0;
+      .metric-label,
+      .subtle {
         color: #a1a1aa;
         font-size: 0.9rem;
-        font-weight: 900;
+        font-weight: 800;
+        line-height: 1.6;
       }
 
       .metric-line {
@@ -232,12 +309,16 @@
         font-weight: 900;
       }
 
-      .burn {
-        height: 4px;
-        margin-top: 18px;
+      .burn,
+      .progress-track {
+        height: 5px;
         overflow: hidden;
         border-radius: 999px;
         background: #27272a;
+      }
+
+      .burn {
+        margin-top: 18px;
       }
 
       .burn span {
@@ -249,24 +330,183 @@
         transform-origin: left;
       }
 
-      .quota {
-        padding: 24px;
-      }
-
-      .quota h2 {
+      .quota-title {
         margin-top: 12px;
-        font-size: 1.65rem;
+        color: #fff;
+        font-size: 1.55rem;
         font-weight: 1000;
+        line-height: 1.35;
       }
 
-      .quota strong {
+      .quota-title strong,
+      .hot {
         color: #fb923c;
       }
 
-      .save-note {
-        margin: 16px 0 0;
+      .section-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .speech-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+      }
+
+      .agenda-summary {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .summary-number {
+        color: #fb923c;
+        font-size: 2rem;
+        font-weight: 1000;
+        line-height: 1;
+      }
+
+      .due-list,
+      .task-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .due-item,
+      .task-item {
+        border: 1px solid #27272a;
+        border-radius: 8px;
+        background: rgba(24, 24, 27, 0.78);
+        padding: 12px;
+      }
+
+      .due-item {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: start;
+        gap: 12px;
+      }
+
+      .due-item.done {
+        border-color: rgba(34, 197, 94, 0.35);
+        background: rgba(20, 83, 45, 0.18);
+      }
+
+      .due-title,
+      .task-title {
+        color: #fff;
+        font-weight: 900;
+        line-height: 1.35;
+      }
+
+      .due-meta,
+      .task-meta {
+        margin-top: 4px;
         color: #a1a1aa;
-        line-height: 1.7;
+        font-size: 0.84rem;
+        font-weight: 800;
+      }
+
+      .empty {
+        border: 1px dashed #3f3f46;
+        border-radius: 8px;
+        padding: 16px;
+        color: #a1a1aa;
+        font-weight: 800;
+      }
+
+      .task-form {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      .task-item {
+        display: grid;
+        gap: 12px;
+      }
+
+      .schedule {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .badge {
+        border: 1px solid #3f3f46;
+        border-radius: 6px;
+        padding: 6px 8px;
+        color: #d4d4d8;
+        font-size: 0.78rem;
+        font-weight: 900;
+      }
+
+      .badge.today {
+        border-color: rgba(251, 146, 60, 0.55);
+        background: rgba(251, 146, 60, 0.12);
+        color: #fed7aa;
+      }
+
+      .progress-value {
+        margin-top: 10px;
+        color: #fff;
+        font-size: 2rem;
+        font-weight: 1000;
+        line-height: 1;
+      }
+
+      .progress-track {
+        position: relative;
+        height: 12px;
+        margin-top: 14px;
+      }
+
+      .progress-track span {
+        display: block;
+        width: 0%;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #dc2626, #fb923c);
+        transition: width 180ms ease;
+      }
+
+      .dual-track {
+        display: grid;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .track-label {
+        display: grid;
+        grid-template-columns: 64px minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+        color: #a1a1aa;
+        font-size: 0.82rem;
+        font-weight: 900;
+      }
+
+      .expected span {
+        background: #52525b;
+      }
+
+      .drift {
+        margin-top: 10px;
+        font-size: 1.25rem;
+        font-weight: 1000;
+      }
+
+      .drift.good {
+        color: #86efac;
+      }
+
+      .drift.bad {
+        color: #f87171;
       }
 
       @media (min-width: 760px) {
@@ -284,8 +524,24 @@
           grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
+        .dashboard-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .speech-actions {
+          grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1fr);
+          align-items: end;
+        }
+
         .metric-value {
-          font-size: 4.5rem;
+          font-size: 4rem;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .task-grid,
+        .todo-grid {
+          grid-template-columns: 1fr;
         }
       }
 
@@ -353,6 +609,11 @@
               <input id="todoUnit" type="text" placeholder="ページ" />
             </span>
           </label>
+
+          <label>
+            朝の読み上げ時刻
+            <input id="alarmTime" type="time" />
+          </label>
         </section>
 
         <p id="status" class="status">
@@ -398,15 +659,108 @@
           </article>
         </section>
 
-        <section class="quota">
-          <p class="quota-kicker">TODAY'S QUOTA</p>
-          <h2 id="quotaText">
-            試験に間に合わせるには、1日あたり <strong>0.00 ページ</strong>
-            の消化が必要です
+        <section class="section-card">
+          <p class="kicker">TODAY'S QUOTA</p>
+          <h2 id="quotaText" class="quota-title">
+            試験に間に合わせるには、1日あたり 0.00 ページ の消化が必要です
           </h2>
-          <p class="save-note">
-            入力内容はlocalStorageに自動保存されます。ページを閉じても、次回そのまま再開できます。
-          </p>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <p class="kicker">MORNING COMMAND</p>
+              <h2>本日のタスクを聴く</h2>
+            </div>
+          </div>
+          <div class="speech-actions">
+            <button id="speakButton" class="primary-button" type="button">
+              本日のタスクを聴く
+            </button>
+            <p id="speechStatus" class="subtle">
+              待機中
+            </p>
+          </div>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <p class="kicker">TODAY'S INTEGRATED TODO</p>
+              <h2>本日の統合ToDo</h2>
+            </div>
+            <strong id="todayTotal" class="summary-number">0</strong>
+          </div>
+          <div class="agenda-summary">
+            <p id="todayBreakdown" class="subtle">新規 0件 / 復習 0件</p>
+            <p id="todayRemaining" class="subtle">未完了 0</p>
+          </div>
+          <div id="dueList" class="due-list"></div>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="section-card">
+            <p class="kicker">DISPLACEMENT X</p>
+            <h2>絶対的達成度</h2>
+            <p id="achievementValue" class="progress-value">0.0%</p>
+            <div class="progress-track">
+              <span id="achievementBar"></span>
+            </div>
+            <label style="margin-top: 16px">
+              本日の実績
+              <span class="log-grid">
+                <input id="todayDoneAmount" type="number" min="0" step="0.1" />
+                <span id="todayDoneUnit" class="unit-text">ページ</span>
+              </span>
+            </label>
+          </article>
+
+          <article class="section-card">
+            <p class="kicker">PLAN VS ACTUAL</p>
+            <h2>予定との乖離度</h2>
+            <p id="driftText" class="drift">0.00ページ</p>
+            <div class="dual-track">
+              <div class="track-label">
+                <span>予定</span>
+                <div class="progress-track expected">
+                  <span id="expectedBar"></span>
+                </div>
+              </div>
+              <div class="track-label">
+                <span>実績</span>
+                <div class="progress-track">
+                  <span id="actualBar"></span>
+                </div>
+              </div>
+            </div>
+            <p id="progressMeta" class="subtle" style="margin-top: 14px">
+              累積 0 / 0
+            </p>
+          </article>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <p class="kicker">FORGETTING CURVE</p>
+              <h2>忘却曲線ToDo登録</h2>
+            </div>
+          </div>
+          <form id="taskForm" class="task-form">
+            <div class="task-grid">
+              <input id="taskName" type="text" placeholder="参考書・単語帳など" />
+              <input id="taskAmount" type="number" min="0" step="0.1" placeholder="量" />
+              <input id="taskUnit" type="text" placeholder="単位" />
+            </div>
+            <div class="task-grid">
+              <input id="taskStartDate" type="date" />
+              <button class="primary-button" type="submit">登録</button>
+              <button id="clearDoneButton" class="ghost-button" type="button">
+                今日を0に戻す
+              </button>
+            </div>
+          </form>
+          <div id="taskList" class="task-list"></div>
         </section>
       </section>
     </main>
@@ -415,11 +769,24 @@
       const STORE_KEY = 'exam-countdown-v1'
       const DAY_MS = 24 * 60 * 60 * 1000
       const HOUR_MS = 60 * 60 * 1000
+      const REVIEW_STEPS = [
+        { offset: 0, label: '初学' },
+        { offset: 1, label: '第1回復習' },
+        { offset: 3, label: '第2回復習' },
+        { offset: 7, label: '第3回復習' },
+        { offset: 14, label: '第4回復習' },
+      ]
       const inputs = {
         examAt: document.getElementById('examAt'),
         sleepHours: document.getElementById('sleepHours'),
         todoAmount: document.getElementById('todoAmount'),
         todoUnit: document.getElementById('todoUnit'),
+        alarmTime: document.getElementById('alarmTime'),
+        todayDoneAmount: document.getElementById('todayDoneAmount'),
+        taskName: document.getElementById('taskName'),
+        taskAmount: document.getElementById('taskAmount'),
+        taskUnit: document.getElementById('taskUnit'),
+        taskStartDate: document.getElementById('taskStartDate'),
       }
       const targets = {
         status: document.getElementById('status'),
@@ -428,11 +795,31 @@
         hoursLeft: document.getElementById('hoursLeft'),
         activeHoursLeft: document.getElementById('activeHoursLeft'),
         quotaText: document.getElementById('quotaText'),
+        speechStatus: document.getElementById('speechStatus'),
+        todayTotal: document.getElementById('todayTotal'),
+        todayBreakdown: document.getElementById('todayBreakdown'),
+        todayRemaining: document.getElementById('todayRemaining'),
+        dueList: document.getElementById('dueList'),
+        achievementValue: document.getElementById('achievementValue'),
+        achievementBar: document.getElementById('achievementBar'),
+        todayDoneUnit: document.getElementById('todayDoneUnit'),
+        driftText: document.getElementById('driftText'),
+        expectedBar: document.getElementById('expectedBar'),
+        actualBar: document.getElementById('actualBar'),
+        progressMeta: document.getElementById('progressMeta'),
+        taskList: document.getElementById('taskList'),
+      }
+      const actions = {
+        speakButton: document.getElementById('speakButton'),
+        taskForm: document.getElementById('taskForm'),
+        clearDoneButton: document.getElementById('clearDoneButton'),
       }
       let state = loadState()
+      let renderedDate = toDateKey(new Date())
 
       applyStateToInputs()
       bindInputs()
+      renderAll()
       requestAnimationFrame(tick)
 
       function getDefaultState() {
@@ -445,6 +832,12 @@
           sleepHours: '7',
           todoAmount: '300',
           todoUnit: 'ページ',
+          alarmTime: '07:00',
+          lastSpokenDate: '',
+          planStartedAt: toDateKey(new Date()),
+          tasks: [],
+          doneEvents: {},
+          dailyLogs: {},
         }
       }
 
@@ -456,10 +849,17 @@
           return fallback
         }
 
-        return {
+        let parsed = JSON.parse(saved)
+        let merged = {
           ...fallback,
-          ...JSON.parse(saved),
+          ...parsed,
         }
+
+        merged.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : []
+        merged.doneEvents = parsed.doneEvents || {}
+        merged.dailyLogs = parsed.dailyLogs || {}
+
+        return merged
       }
 
       function saveState() {
@@ -471,25 +871,77 @@
         inputs.sleepHours.value = state.sleepHours
         inputs.todoAmount.value = state.todoAmount
         inputs.todoUnit.value = state.todoUnit
+        inputs.alarmTime.value = state.alarmTime
+        inputs.taskStartDate.value = toDateKey(new Date())
+        syncTodayDoneInput()
       }
 
       function bindInputs() {
-        Object.keys(inputs).forEach((name) => {
-          inputs[name].addEventListener('input', () => {
-            state[name] = inputs[name].value
-            saveState()
-            render()
-          })
+        ;['examAt', 'sleepHours', 'todoAmount', 'todoUnit', 'alarmTime'].forEach(
+          (name) => {
+            inputs[name].addEventListener('input', () => {
+              state[name] = inputs[name].value
+              saveAndRender()
+            })
+          },
+        )
+
+        inputs.todayDoneAmount.addEventListener('input', () => {
+          let key = toDateKey(new Date())
+          state.dailyLogs[key] = {
+            amount: Number(inputs.todayDoneAmount.value) || 0,
+            updatedAt: new Date().toISOString(),
+          }
+          saveState()
+          renderDynamic()
+        })
+
+        actions.speakButton.addEventListener('click', () => {
+          speakToday()
+        })
+
+        actions.taskForm.addEventListener('submit', (event) => {
+          event.preventDefault()
+          addTask()
+        })
+
+        actions.clearDoneButton.addEventListener('click', () => {
+          let key = toDateKey(new Date())
+          delete state.dailyLogs[key]
+          syncTodayDoneInput()
+          saveAndRender()
         })
       }
 
       function tick() {
-        render()
+        let key = toDateKey(new Date())
+
+        if (key !== renderedDate) {
+          renderedDate = key
+          syncTodayDoneInput()
+          renderAll()
+        } else {
+          renderDynamic()
+        }
+
+        maybeAutoSpeak()
         requestAnimationFrame(tick)
       }
 
-      function render() {
+      function saveAndRender() {
+        saveState()
+        renderAll()
+      }
+
+      function renderAll() {
+        renderDynamic()
+        renderAgenda()
+        renderTasks()
+      }
+
+      function renderDynamic() {
         let metrics = getMetrics()
+        let progress = getProgress()
 
         targets.targetText.textContent = formatTarget(state.examAt)
         targets.daysLeft.textContent = metrics.ended
@@ -507,16 +959,211 @@
             '終了しました。試験日時を未来に設定してください。'
           targets.status.classList.add('ended')
           targets.quotaText.textContent = '終了しました'
+        } else {
+          targets.status.textContent =
+            '残り時間は今この瞬間も削られています。'
+          targets.status.classList.remove('ended')
+          targets.quotaText.textContent = `試験に間に合わせるには、1日あたり ${formatNumber(
+            metrics.quota,
+            2,
+          )} ${metrics.unit} の消化が必要です`
+        }
+
+        targets.todayDoneUnit.textContent = progress.unit
+        targets.achievementValue.textContent = `${formatNumber(
+          progress.actualPercent,
+          1,
+        )}%`
+        targets.achievementBar.style.width = `${clamp(progress.actualPercent, 0, 100)}%`
+        targets.expectedBar.style.width = `${clamp(
+          progress.expectedPercent,
+          0,
+          100,
+        )}%`
+        targets.actualBar.style.width = `${clamp(progress.actualPercent, 0, 100)}%`
+        targets.progressMeta.textContent = `累積 ${formatNumber(
+          progress.actual,
+          2,
+        )} / ${formatNumber(progress.total, 2)} ${progress.unit}`
+
+        let driftPrefix = progress.drift >= 0 ? '+' : ''
+        let driftLabel =
+          progress.drift >= 0
+            ? `${driftPrefix}${formatNumber(progress.drift, 2)} ${progress.unit} / ${driftPrefix}${formatNumber(progress.driftPercent, 1)}%`
+            : `${formatNumber(progress.drift, 2)} ${progress.unit} / ${formatNumber(progress.driftPercent, 1)}% 危険`
+        targets.driftText.textContent = driftLabel
+        targets.driftText.classList.toggle('good', progress.drift >= 0)
+        targets.driftText.classList.toggle('bad', progress.drift < 0)
+      }
+
+      function renderAgenda() {
+        let agenda = getTodayAgenda()
+        targets.todayTotal.textContent = formatAmountMap(agenda.totalByUnit)
+        targets.todayBreakdown.textContent = `新規 ${agenda.newCount}件 / 復習 ${agenda.reviewCount}件`
+        targets.todayRemaining.textContent = `未完了 ${formatAmountMap(
+          agenda.remainingByUnit,
+        )}`
+        targets.dueList.textContent = ''
+
+        if (agenda.items.length === 0) {
+          targets.dueList.appendChild(createEmpty('今日の登録タスクはありません'))
           return
         }
 
-        targets.status.textContent =
-          '残り時間は今この瞬間も削られています。'
-        targets.status.classList.remove('ended')
-        targets.quotaText.textContent = `試験に間に合わせるには、1日あたり ${formatNumber(
-          metrics.quota,
-          2,
-        )} ${metrics.unit} の消化が必要です`
+        agenda.items.forEach((item) => {
+          let row = document.createElement('label')
+          row.className = item.done ? 'due-item done' : 'due-item'
+
+          let checkbox = document.createElement('input')
+          checkbox.type = 'checkbox'
+          checkbox.checked = item.done
+          checkbox.addEventListener('change', () => {
+            setEventDone(item.key, checkbox.checked)
+          })
+
+          let body = document.createElement('div')
+          let title = document.createElement('p')
+          title.className = 'due-title'
+          title.textContent = `${item.name} / ${item.label}`
+          let meta = document.createElement('p')
+          meta.className = 'due-meta'
+          meta.textContent = `${formatNumber(item.amount, 2)} ${item.unit} / ${item.date}`
+
+          body.append(title, meta)
+          row.append(checkbox, body)
+          targets.dueList.appendChild(row)
+        })
+      }
+
+      function renderTasks() {
+        targets.taskList.textContent = ''
+
+        if (state.tasks.length === 0) {
+          targets.taskList.appendChild(createEmpty('登録済みToDoはありません'))
+          return
+        }
+
+        state.tasks
+          .slice()
+          .reverse()
+          .forEach((task) => {
+            let item = document.createElement('article')
+            item.className = 'task-item'
+
+            let head = document.createElement('div')
+            let title = document.createElement('p')
+            title.className = 'task-title'
+            title.textContent = task.name
+            let meta = document.createElement('p')
+            meta.className = 'task-meta'
+            meta.textContent = `${formatNumber(Number(task.amount) || 0, 2)} ${
+              task.unit
+            } / 開始 ${task.startDate}`
+            head.append(title, meta)
+
+            let schedule = document.createElement('div')
+            schedule.className = 'schedule'
+            task.schedule.forEach((event) => {
+              let badge = document.createElement('span')
+              badge.className =
+                event.date === toDateKey(new Date()) ? 'badge today' : 'badge'
+              badge.textContent = `${event.label} ${formatShortDate(event.date)}`
+              schedule.appendChild(badge)
+            })
+
+            let remove = document.createElement('button')
+            remove.className = 'danger-button'
+            remove.type = 'button'
+            remove.textContent = '削除'
+            remove.addEventListener('click', () => removeTask(task.id))
+
+            item.append(head, schedule, remove)
+            targets.taskList.appendChild(item)
+          })
+      }
+
+      function addTask() {
+        let name = inputs.taskName.value.trim()
+        let amount = Number(inputs.taskAmount.value) || 0
+        let unit = inputs.taskUnit.value.trim() || state.todoUnit.trim() || '単位'
+        let startDate = inputs.taskStartDate.value || toDateKey(new Date())
+
+        if (!name || amount <= 0) {
+          return
+        }
+
+        let task = {
+          id: `todo-${Date.now()}`,
+          name,
+          amount,
+          unit,
+          startDate,
+          schedule: REVIEW_STEPS.map((step) => ({
+            ...step,
+            date: addDays(startDate, step.offset),
+          })),
+        }
+
+        state.tasks.push(task)
+        inputs.taskName.value = ''
+        inputs.taskAmount.value = ''
+        inputs.taskUnit.value = ''
+        inputs.taskStartDate.value = toDateKey(new Date())
+        saveAndRender()
+      }
+
+      function removeTask(id) {
+        state.tasks = state.tasks.filter((task) => task.id !== id)
+        Object.keys(state.doneEvents).forEach((key) => {
+          if (key.startsWith(`${id}:`)) {
+            delete state.doneEvents[key]
+          }
+        })
+        saveAndRender()
+      }
+
+      function setEventDone(key, done) {
+        if (done) {
+          state.doneEvents[key] = true
+        } else {
+          delete state.doneEvents[key]
+        }
+
+        saveAndRender()
+      }
+
+      function getTodayAgenda() {
+        let today = toDateKey(new Date())
+        let items = []
+
+        state.tasks.forEach((task) => {
+          task.schedule.forEach((event) => {
+            if (event.date !== today) {
+              return
+            }
+
+            let key = `${task.id}:${event.offset}`
+            items.push({
+              ...event,
+              key,
+              taskId: task.id,
+              name: task.name,
+              amount: Number(task.amount) || 0,
+              unit: task.unit || state.todoUnit || '単位',
+              done: Boolean(state.doneEvents[key]),
+            })
+          })
+        })
+
+        let pending = items.filter((item) => !item.done)
+
+        return {
+          items,
+          totalByUnit: sumByUnit(items),
+          remainingByUnit: sumByUnit(pending),
+          newCount: items.filter((item) => item.offset === 0).length,
+          reviewCount: items.filter((item) => item.offset > 0).length,
+        }
       }
 
       function getMetrics() {
@@ -542,11 +1189,136 @@
         }
       }
 
+      function getProgress() {
+        let total = Number(state.todoAmount) || 0
+        let actual = Object.values(state.dailyLogs).reduce((sum, log) => {
+          return sum + (Number(log.amount) || 0)
+        }, 0)
+        let examMs = new Date(state.examAt).getTime()
+        let startMs = startOfDateKey(state.planStartedAt).getTime()
+        let endMs = Number.isFinite(examMs) ? examMs : startMs
+        let duration = Math.max(endMs - startMs, 1)
+        let elapsed = clamp(Date.now() - startMs, 0, duration)
+        let expected = total * (elapsed / duration)
+        let actualPercent = total > 0 ? (actual / total) * 100 : 0
+        let expectedPercent = total > 0 ? (expected / total) * 100 : 0
+        let drift = actual - expected
+        let driftPercent = total > 0 ? (drift / total) * 100 : 0
+
+        return {
+          total,
+          actual,
+          expected,
+          drift,
+          driftPercent,
+          actualPercent,
+          expectedPercent,
+          unit: state.todoUnit.trim() || '単位',
+        }
+      }
+
+      function speakToday() {
+        let canSpeak =
+          'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window
+
+        if (!canSpeak) {
+          targets.speechStatus.textContent =
+            'このブラウザでは音声合成に対応していません。'
+          return
+        }
+
+        let agenda = getTodayAgenda()
+        let metrics = getMetrics()
+        let todoText = formatAmountMap(agenda.remainingByUnit)
+        let quotaText = `${formatNumber(metrics.quota, 2)} ${metrics.unit}`
+        let text = `おはようございます。今日の変位目標を達成するために、本日消化すべきタスクは${todoText}です。試験に間に合わせる最低ノルマは${quotaText}です。サボると未来の自分が詰みます。頑張りましょう。`
+        let utterance = new SpeechSynthesisUtterance(text)
+
+        utterance.lang = 'ja-JP'
+        utterance.rate = 1.02
+        utterance.pitch = 0.95
+        window.speechSynthesis.cancel()
+        window.speechSynthesis.speak(utterance)
+
+        state.lastSpokenDate = toDateKey(new Date())
+        saveState()
+        targets.speechStatus.textContent = '読み上げ中です。'
+      }
+
+      function maybeAutoSpeak() {
+        if (!state.alarmTime) {
+          return
+        }
+
+        let now = new Date()
+        let today = toDateKey(now)
+        let hh = String(now.getHours()).padStart(2, '0')
+        let mm = String(now.getMinutes()).padStart(2, '0')
+
+        if (`${hh}:${mm}` === state.alarmTime && state.lastSpokenDate !== today) {
+          speakToday()
+        }
+      }
+
+      function syncTodayDoneInput() {
+        let key = toDateKey(new Date())
+        let log = state.dailyLogs[key]
+        inputs.todayDoneAmount.value = log ? log.amount : ''
+      }
+
+      function sumByUnit(items) {
+        return items.reduce((map, item) => {
+          let unit = item.unit || '単位'
+          map[unit] = (map[unit] || 0) + (Number(item.amount) || 0)
+          return map
+        }, {})
+      }
+
+      function formatAmountMap(map) {
+        let entries = Object.entries(map).filter((entry) => Number(entry[1]) > 0)
+
+        if (entries.length === 0) {
+          return `0 ${state.todoUnit.trim() || '単位'}`
+        }
+
+        return entries
+          .map(([unit, amount]) => `${formatNumber(amount, 2)} ${unit}`)
+          .join(' + ')
+      }
+
+      function createEmpty(text) {
+        let item = document.createElement('p')
+        item.className = 'empty'
+        item.textContent = text
+        return item
+      }
+
+      function addDays(dateKey, days) {
+        let date = startOfDateKey(dateKey)
+        date.setDate(date.getDate() + days)
+        return toDateKey(date)
+      }
+
+      function startOfDateKey(dateKey) {
+        let parts = dateKey.split('-').map(Number)
+        return new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0)
+      }
+
+      function toDateKey(date) {
+        let year = date.getFullYear()
+        let month = String(date.getMonth() + 1).padStart(2, '0')
+        let day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+
       function toInputValue(date) {
         let offsetMs = date.getTimezoneOffset() * 60 * 1000
         let local = new Date(date.getTime() - offsetMs)
-
         return local.toISOString().slice(0, 16)
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max)
       }
 
       function formatNumber(value, digits) {
@@ -569,6 +1341,14 @@
           day: '2-digit',
           hour: '2-digit',
           minute: '2-digit',
+        }).format(date)
+      }
+
+      function formatShortDate(dateKey) {
+        let date = startOfDateKey(dateKey)
+        return new Intl.DateTimeFormat('ja-JP', {
+          month: '2-digit',
+          day: '2-digit',
         }).format(date)
       }
     </script>
