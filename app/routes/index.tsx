@@ -84,18 +84,27 @@ export default function Page() {
     return () => window.clearTimeout(timer)
   }, [flash])
 
+  useEffect(() => {
+    let todayKey = toDateKey(new Date(now))
+    let next = normalizeCriticalBuffer(state, todayKey)
+
+    if (!isSameBufferSnapshot(state, next)) {
+      setState(next)
+    }
+  }, [now, state.tasks, state.doneEvents, state.dailyLimit, state.todoAmount, state.todoUnit])
+
   let metrics = getMetrics(state, now)
   let progress = getProgress(state, now)
+  let future = getFutureSimulation(state, now, progress, metrics)
   let agenda = getTodayAgenda(state)
   let todayRecord = getDailyRecord(state, toDateKey(new Date()))
   let recordStatus = todayRecord
     ? `今日の記録: ${formatNumber(todayRecord.amount, 2)} ${progress.unit}`
     : '未記録'
-  let driftPrefix = progress.drift >= 0 ? '+' : '-'
-  let driftLabel =
-    progress.drift >= 0
-      ? `${driftPrefix}${formatNumber(progress.drift, 2)} ${progress.unit}進んでいます（順調！ / ${driftPrefix}${formatNumber(progress.driftPercent, 1)}%）`
-      : `-${formatNumber(Math.abs(progress.drift), 2)} ${progress.unit}遅れています（危険！ / -${formatNumber(Math.abs(progress.driftPercent), 1)}%）`
+  let debtLabel =
+    progress.debt >= 0
+      ? `現在、計画より【 +${formatNumber(progress.debt, 1)} ${progress.unit} 】貯金があります。この調子を維持してください。`
+      : `現在、累計で【 ${formatNumber(Math.abs(progress.debt), 1)} ${progress.unit} 】の借金（未消化タスク）があります。未来のあなたが詰みかけています。`
   let statusText = metrics.ended
     ? '終了しました。試験日時を未来に設定してください。'
     : '残り時間は今この瞬間も削られています。'
@@ -211,6 +220,62 @@ export default function Page() {
     })
   }
 
+  function addAllowedChannel() {
+    let parsed = parseChannelInput(state.channelInput, state.channelName)
+
+    if (!parsed) {
+      return
+    }
+
+    setState((current) => {
+      let nextChannels = current.allowedChannels.filter(
+        (channel) => channel.channelId !== parsed.channelId,
+      )
+
+      nextChannels.unshift(parsed)
+
+      return {
+        ...current,
+        allowedChannels: nextChannels,
+        selectedChannelId: parsed.channelId,
+        channelInput: '',
+        channelName: '',
+      }
+    })
+  }
+
+  function selectChannel(channelId: string) {
+    setState((current) => ({
+      ...current,
+      selectedChannelId: channelId,
+    }))
+  }
+
+  function removeAllowedChannel(channelId: string) {
+    setState((current) => {
+      let nextChannels = current.allowedChannels.filter(
+        (channel) => channel.channelId !== channelId,
+      )
+      let nextSelected = current.selectedChannelId === channelId
+        ? nextChannels[0]?.channelId || ''
+        : current.selectedChannelId
+
+      return {
+        ...current,
+        allowedChannels: nextChannels,
+        selectedChannelId: nextSelected,
+      }
+    })
+  }
+
+  let selectedChannel = state.allowedChannels.find(
+    (channel) => channel.channelId === state.selectedChannelId,
+  )
+  let selectedPlaylistId = selectedChannel ? toUploadPlaylistId(selectedChannel.channelId) : ''
+  let playerSrc = selectedPlaylistId
+    ? `https://www.youtube.com/embed/videoseries?list=${selectedPlaylistId}&rel=0&modestbranding=1`
+    : ''
+
   let rootClass = flash ? 'record-flash' : ''
 
   return (
@@ -274,6 +339,17 @@ export default function Page() {
                   onChange={(event) => update('todoUnit', event.target.value)}
                 />
               </div>
+            </Field>
+
+            <Field label="1日の最大限界タスク量">
+              <input
+                className="control"
+                type="number"
+                min="1"
+                step="1"
+                value={state.dailyLimit}
+                onChange={(event) => update('dailyLimit', event.target.value)}
+              />
             </Field>
 
             <Field label="朝の読み上げ時刻">
@@ -432,12 +508,12 @@ export default function Page() {
             </article>
 
             <article className="section-card">
-              <p className="kicker">PLAN VS ACTUAL</p>
-              <h2>予定との乖離度</h2>
-              <p className={`drift ${progress.drift >= 0 ? 'good' : 'bad'}`}>{driftLabel}</p>
+              <p className="kicker">CURRENT TASK DEBT</p>
+              <h2>現在のタスク借金（累積の遅れ）</h2>
+              <p className={`drift ${progress.debt >= 0 ? 'good' : 'bad'}`}>{debtLabel}</p>
               <div className="dual-track">
                 <div className="track-label">
-                  <span>予定</span>
+                  <span>理想</span>
                   <div className="progress-track expected">
                     <span id="expectedBar" style={{ width: `${clamp(progress.expectedPercent, 0, 100)}%` }} />
                   </div>
@@ -453,6 +529,35 @@ export default function Page() {
                 累積 {formatNumber(progress.actual, 2)} / {formatNumber(progress.total, 2)} {progress.unit}
               </p>
             </article>
+          </section>
+
+          <section className={`section-card future-sim ${future.safe ? 'good' : 'bad'}`}>
+            <div className="section-head">
+              <div>
+                <p className="kicker">FUTURE SIMULATION</p>
+                <h2>等速度運動による未来予測</h2>
+              </div>
+            </div>
+            <p className={`future-text ${future.safe ? 'good' : 'bad'}`}>{future.message}</p>
+            <div className="future-meta">
+              <span>直近3日平均: {formatNumber(future.speed, 1)} {progress.unit}/日</span>
+              <span>試験当日予測: {formatNumber(future.predictedTotal, 1)} {progress.unit}</span>
+            </div>
+          </section>
+
+          <section className={`section-card buffer-card ${state.bufferNotice.mode}`}>
+            <div className="section-head">
+              <div>
+                <p className="kicker">CRITICAL BUFFER</p>
+                <h2>パンク回避システム</h2>
+              </div>
+            </div>
+            <p className="buffer-text">{state.bufferNotice.message}</p>
+            <div className="buffer-meta">
+              <span>限界キャパ: {formatNumber(state.bufferNotice.capacity, 0)} {state.todoUnit || '単位'}</span>
+              <span>負荷率: {formatNumber(state.bufferNotice.load, 1)}%</span>
+              <span>自動分散: {state.bufferNotice.movedCount}件</span>
+            </div>
           </section>
 
           <section className="section-card">
@@ -546,6 +651,93 @@ export default function Page() {
               )}
             </div>
           </section>
+
+          <section className="section-card">
+            <div className="section-head">
+              <div>
+                <p className="kicker">STUDY TUBE</p>
+                <h2>許可チャンネル空間</h2>
+              </div>
+            </div>
+
+            <form
+              className="channel-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                addAllowedChannel()
+              }}
+            >
+              <input
+                className="control"
+                type="text"
+                placeholder="YouTubeのチャンネルURL または UC... ID"
+                value={state.channelInput}
+                onChange={(event) => update('channelInput', event.target.value)}
+              />
+              <div className="channel-grid">
+                <input
+                  className="control"
+                  type="text"
+                  placeholder="表示名（任意）"
+                  value={state.channelName}
+                  onChange={(event) => update('channelName', event.target.value)}
+                />
+                <button className="primary-button" type="submit">
+                  許可チャンネル登録
+                </button>
+              </div>
+            </form>
+
+            <div className="channel-tabs">
+              {state.allowedChannels.length === 0 ? (
+                <p className="empty">まだ許可チャンネルがありません</p>
+              ) : (
+                state.allowedChannels.map((channel) => (
+                  <button
+                    key={channel.id}
+                    type="button"
+                    className={`channel-tab ${
+                      channel.channelId === state.selectedChannelId ? 'active' : ''
+                    }`}
+                    onClick={() => selectChannel(channel.channelId)}
+                  >
+                    <span>{channel.name}</span>
+                    <span className="channel-mini">{channel.channelId}</span>
+                  </button>
+                ))
+              )}
+            </div>
+
+            {selectedChannel ? (
+              <div className="player-shell">
+                <div className="player-meta">
+                  <span>{selectedChannel.name}</span>
+                  <span>Playlist: {selectedPlaylistId}</span>
+                  <span>Uploader only</span>
+                </div>
+                <iframe
+                  className="study-frame"
+                  src={playerSrc}
+                  title={`${selectedChannel.name} - YouTube playlist`}
+                  allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+                <button
+                  className="ghost-button"
+                  type="button"
+                  onClick={() => removeAllowedChannel(selectedChannel.channelId)}
+                  style={{ marginTop: 12 }}
+                >
+                  このチャンネルを外す
+                </button>
+              </div>
+            ) : (
+              <p className="subtle" style={{ marginTop: 12 }}>
+                チャンネルを登録すると、そのアップロード一覧だけを再生できます。
+              </p>
+            )}
+          </section>
         </section>
       </section>
     </main>
@@ -591,6 +783,7 @@ function getDefaultState(): State {
     sleepHours: '7',
     todoAmount: '300',
     todoUnit: 'ページ',
+    dailyLimit: '20',
     alarmTime: '07:00',
     lastSpokenDate: '',
     planStartedAt: new Date().toISOString(),
@@ -600,9 +793,21 @@ function getDefaultState(): State {
     taskAmount: '',
     taskUnit: '',
     taskStartDate: toDateKey(new Date()),
+    channelInput: '',
+    channelName: '',
+    selectedChannelId: '',
+    allowedChannels: [] as AllowedChannel[],
     tasks: [] as Task[],
     doneEvents: {} as Record<string, boolean>,
     dailyLogs: [] as DailyLog[],
+    bufferNotice: {
+      mode: 'safe',
+      capacity: 20,
+      load: 0,
+      movedCount: 0,
+      date: toDateKey(new Date()),
+      message: '【安全】本日の総タスク量は限界キャパシティ内に収まっています。現在の負荷率: 0.0%',
+    },
   })
 }
 
@@ -616,8 +821,14 @@ function normalizeState(current: State): State {
     taskName: current.taskName ?? '',
     taskAmount: current.taskAmount ?? '',
     taskUnit: current.taskUnit ?? '',
+    dailyLimit: current.dailyLimit || '20',
     taskStartDate: current.taskStartDate || toDateKey(new Date()),
+    channelInput: current.channelInput ?? '',
+    channelName: current.channelName ?? '',
+    selectedChannelId: current.selectedChannelId ?? '',
+    allowedChannels: normalizeAllowedChannels(current.allowedChannels),
     initialDailyQuota: Number(current.initialDailyQuota) || 0,
+    bufferNotice: normalizeBufferNotice(current.bufferNotice, Number(current.dailyLimit) || 20),
   }
 
   if (!isValidDate(next.planStartedAt)) {
@@ -626,6 +837,10 @@ function normalizeState(current: State): State {
 
   if (!next.initialDailyQuota) {
     next.initialDailyQuota = computeInitialDailyQuota(next)
+  }
+
+  if (!next.selectedChannelId && next.allowedChannels.length > 0) {
+    next.selectedChannelId = next.allowedChannels[0].channelId
   }
 
   return next
@@ -654,6 +869,252 @@ function normalizeDailyLogs(value: any): DailyLog[] {
   }
 
   return []
+}
+
+function normalizeAllowedChannels(value: any): AllowedChannel[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .filter((item) => item && typeof item.channelId === 'string')
+    .map((item, index) => ({
+      id: typeof item.id === 'string' && item.id ? item.id : `channel-${index}`,
+      name:
+        typeof item.name === 'string' && item.name
+          ? item.name
+          : item.channelId,
+      channelId: item.channelId,
+    }))
+}
+
+function parseChannelInput(channelInput: string, channelName: string) {
+  let trimmed = channelInput.trim()
+  let match = trimmed.match(/(UC[a-zA-Z0-9_-]{8,})/)
+
+  if (!match) {
+    return null
+  }
+
+  let channelId = match[1]
+  let name = channelName.trim() || `Channel ${channelId.slice(-6)}`
+
+  return {
+    id: makeChannelId(channelId),
+    name,
+    channelId,
+  }
+}
+
+function toUploadPlaylistId(channelId: string) {
+  if (!channelId.startsWith('UC')) {
+    return channelId
+  }
+
+  return `UU${channelId.slice(2)}`
+}
+
+function makeChannelId(channelId: string) {
+  return `channel-${channelId}`
+}
+
+function normalizeBufferNotice(value: any, capacity: number): BufferNotice {
+  let safeCapacity = Number.isFinite(capacity) && capacity > 0 ? capacity : 20
+  let todayKey = toDateKey(new Date())
+
+  if (!value || typeof value !== 'object') {
+    return {
+      mode: 'safe',
+      capacity: safeCapacity,
+      load: 0,
+      movedCount: 0,
+      date: todayKey,
+      message: `【安全】本日の総タスク量は限界キャパシティ内に収まっています。現在の負荷率: 0.0%`,
+    }
+  }
+
+  return {
+    mode: (value.mode === 'adjusted' || value.mode === 'overflow'
+      ? value.mode
+      : 'safe') as BufferNotice['mode'],
+    capacity: Number(value.capacity) || safeCapacity,
+    load: Number(value.load) || 0,
+    movedCount: Number(value.movedCount) || 0,
+    date: typeof value.date === 'string' ? value.date : todayKey,
+    message:
+      typeof value.message === 'string' && value.message
+        ? value.message
+        : `【安全】本日の総タスク量は限界キャパシティ内に収まっています。現在の負荷率: 0.0%`,
+  }
+}
+
+function isSameBufferSnapshot(current: State, next: State) {
+  return (
+    serializeTaskPlan(current.tasks) === serializeTaskPlan(next.tasks) &&
+    current.bufferNotice.mode === next.bufferNotice.mode &&
+    current.bufferNotice.capacity === next.bufferNotice.capacity &&
+    current.bufferNotice.load === next.bufferNotice.load &&
+    current.bufferNotice.movedCount === next.bufferNotice.movedCount &&
+    current.bufferNotice.message === next.bufferNotice.message &&
+    current.bufferNotice.date === next.bufferNotice.date
+  )
+}
+
+function serializeTaskPlan(tasks: Task[]) {
+  return JSON.stringify(
+    tasks.map((task) => ({
+      id: task.id,
+      schedule: task.schedule.map((event) => ({
+        offset: event.offset,
+        date: event.date,
+      })),
+    })),
+  )
+}
+
+function normalizeCriticalBuffer(data: State, todayKey: string): State {
+  let limit = Math.max(1, Number(data.dailyLimit) || 20)
+  let nextTasks = cloneTasks(data.tasks)
+  let movedCount = 0
+  let dayMap = new Map<string, BufferEventRef[]>()
+  let currentKey = todayKey
+  let maxKey = todayKey
+
+  nextTasks.forEach((task, taskIndex) => {
+    task.schedule.forEach((event, eventIndex) => {
+      let eventKey = `${task.id}:${event.offset}`
+      if (data.doneEvents[eventKey] || event.date < todayKey) {
+        return
+      }
+
+      let ref: BufferEventRef = {
+        taskIndex,
+        eventIndex,
+        taskId: task.id,
+        offset: event.offset,
+        amount: Number(task.amount) || 0,
+        date: event.date,
+      }
+
+      pushDayBucket(dayMap, event.date, ref)
+
+      if (event.date > maxKey) {
+        maxKey = event.date
+      }
+    })
+  })
+
+  while (currentKey <= maxKey) {
+    let bucket = (dayMap.get(currentKey) || []).slice()
+    bucket.sort(compareBufferPriority)
+
+    let total = sumBufferAmount(bucket)
+    while (total > limit && bucket.length > 0) {
+      let moved = bucket.pop()!
+      let nextDate = addDays(currentKey, 1)
+      let task = nextTasks[moved.taskIndex]
+      task.schedule[moved.eventIndex].date = nextDate
+      moved.date = nextDate
+      pushDayBucket(dayMap, nextDate, moved)
+      movedCount += 1
+      total -= moved.amount
+      if (nextDate > maxKey) {
+        maxKey = nextDate
+      }
+    }
+
+    dayMap.set(currentKey, bucket)
+    currentKey = addDays(currentKey, 1)
+  }
+
+  let todayItems = (dayMap.get(todayKey) || []).slice().sort(compareBufferPriority)
+  let todayTotal = sumBufferAmount(todayItems)
+  let load = limit > 0 ? (todayTotal / limit) * 100 : 0
+  let safeUnit = data.todoUnit.trim() || '単位'
+
+  if (movedCount > 0) {
+    return {
+      ...data,
+      tasks: nextTasks,
+      bufferNotice: {
+        mode: 'adjusted',
+        capacity: limit,
+        load,
+        movedCount,
+        date: todayKey,
+        message: `【防壁発動】本日の復習タスクが限界キャパ（${formatNumber(limit, 0)} ${safeUnit}）を超えたため、${movedCount}件のタスクを翌日以降に自動で安全分散しました。システムはあなたのオーバーヒートを防止しています。`,
+      },
+    }
+  }
+
+  if (todayTotal > limit) {
+    return {
+      ...data,
+      bufferNotice: {
+        mode: 'overflow',
+        capacity: limit,
+        load,
+        movedCount: 0,
+        date: todayKey,
+        message: `【警告】本日の総タスク量が限界キャパ（${formatNumber(limit, 0)} ${safeUnit}）を超えています。これ以上の安全分散ができません。`,
+      },
+    }
+  }
+
+  if (
+    data.bufferNotice.mode === 'adjusted' &&
+    data.bufferNotice.date === todayKey &&
+    data.bufferNotice.capacity === limit
+  ) {
+    return data
+  }
+
+  return {
+    ...data,
+    bufferNotice: {
+      mode: 'safe',
+      capacity: limit,
+      load,
+      movedCount: 0,
+      date: todayKey,
+      message: `【安全】本日の総タスク量は限界キャパシティ内に収まっています。現在の負荷率: ${formatNumber(load, 1)}%`,
+    },
+  }
+}
+
+function cloneTasks(tasks: Task[]): Task[] {
+  return tasks.map((task) => ({
+    ...task,
+    schedule: task.schedule.map((event) => ({
+      ...event,
+    })),
+  }))
+}
+
+function pushDayBucket(map: Map<string, BufferEventRef[]>, date: string, ref: BufferEventRef) {
+  let bucket = map.get(date)
+  if (!bucket) {
+    bucket = []
+    map.set(date, bucket)
+  }
+
+  bucket.push(ref)
+}
+
+function compareBufferPriority(a: BufferEventRef, b: BufferEventRef) {
+  if (a.offset !== b.offset) {
+    return a.offset - b.offset
+  }
+
+  if (a.taskIndex !== b.taskIndex) {
+    return a.taskIndex - b.taskIndex
+  }
+
+  return a.eventIndex - b.eventIndex
+}
+
+function sumBufferAmount(items: BufferEventRef[]) {
+  return items.reduce((sum, item) => sum + item.amount, 0)
 }
 
 function getMetrics(data: State, now: number) {
@@ -687,19 +1148,87 @@ function getProgress(data: State, now: number): Progress {
   let expected = computeIdealAccumulated(data, now)
   let actualPercent = total > 0 ? (actual / total) * 100 : 0
   let expectedPercent = total > 0 ? (expected / total) * 100 : 0
-  let drift = actual - expected
-  let driftPercent = total > 0 ? (drift / total) * 100 : 0
+  let debt = actual - expected
+  let debtPercent = total > 0 ? (debt / total) * 100 : 0
 
   return {
     total,
     actual,
     expected,
-    drift,
-    driftPercent,
+    debt,
+    debtPercent,
     actualPercent,
     expectedPercent,
     unit: data.todoUnit.trim() || '単位',
   }
+}
+
+function getFutureSimulation(
+  data: State,
+  now: number,
+  progress: Progress,
+  metrics: ReturnType<typeof getMetrics>,
+) {
+  let total = Number(data.todoAmount) || 0
+  let speed = getCurrentSpeed(data, now)
+  let predictedTotal = progress.actual + speed * Math.max(metrics.days, 0)
+  let unfinished = total - predictedTotal
+
+  if (unfinished > 0) {
+    return {
+      safe: false,
+      speed,
+      predictedTotal,
+      unfinished,
+      buffer: 0,
+      message: `【警告】現在のペース（直近3日平均: ${formatNumber(speed, 1)} ${progress.unit}/日）を続けると、試験当日に【 ${formatNumber(unfinished, 1)} ${progress.unit} 】未完了で終わります。現在の速度では未来のあなたを救えません。`,
+    }
+  }
+
+  return {
+    safe: true,
+    speed,
+    predictedTotal,
+    unfinished,
+    buffer: Math.abs(unfinished),
+    message: `【順調】現在のペース（直近3日平均: ${formatNumber(speed, 1)} ${progress.unit}/日）を維持すれば、試験日までにすべて完了します。（予測バッファ: ＋${formatNumber(Math.abs(unfinished), 1)} ${progress.unit}）`,
+  }
+}
+
+function getCurrentSpeed(data: State, now: number) {
+  let todayMs = startOfDateKey(toDateKey(new Date(now))).getTime()
+  let startMs = startOfDateKey(toDateKey(new Date(data.planStartedAt))).getTime()
+
+  if (!Number.isFinite(todayMs) || !Number.isFinite(startMs) || todayMs < startMs) {
+    return Number(data.initialDailyQuota) || 0
+  }
+
+  let daysSinceStart = Math.floor((todayMs - startMs) / DAY_MS) + 1
+  let recentStartMs = todayMs - 2 * DAY_MS
+  let recentTotal = data.dailyLogs
+    .filter((log) => {
+      let logMs = startOfDateKey(log.date).getTime()
+      return logMs >= recentStartMs && logMs <= todayMs
+    })
+    .reduce((sum, log) => sum + (Number(log.amount) || 0), 0)
+
+  if (daysSinceStart < 3) {
+    return getAllDaysAverageSpeed(data, daysSinceStart)
+  }
+
+  return recentTotal / 3
+}
+
+function getAllDaysAverageSpeed(data: State, daysSinceStart: number) {
+  let total = data.dailyLogs.reduce((sum, log) => {
+    return sum + (Number(log.amount) || 0)
+  }, 0)
+
+  if (total <= 0) {
+    return Number(data.initialDailyQuota) || 0
+  }
+
+  return total / Math.max(1, daysSinceStart)
 }
 
 function getTodayAgenda(data: State): TodayAgenda {
@@ -726,13 +1255,20 @@ function getTodayAgenda(data: State): TodayAgenda {
   })
 
   let pending = items.filter((item) => !item.done)
+  let sortedItems = items.slice().sort((a, b) => {
+    if (a.offset !== b.offset) {
+      return a.offset - b.offset
+    }
+
+    return a.taskId.localeCompare(b.taskId)
+  })
 
   return {
-    items,
+    items: sortedItems,
     totalByUnit: sumByUnit(items),
     remainingByUnit: sumByUnit(pending),
-    newCount: items.filter((item) => item.offset === 0).length,
-    reviewCount: items.filter((item) => item.offset > 0).length,
+    newCount: sortedItems.filter((item) => item.offset === 0).length,
+    reviewCount: sortedItems.filter((item) => item.offset > 0).length,
   }
 }
 
@@ -811,18 +1347,19 @@ function computeInitialDailyQuota(data: State) {
 }
 
 function computeIdealAccumulated(data: State, now: number) {
-  let startMs = new Date(data.planStartedAt).getTime()
-  let examMs = new Date(data.examAt).getTime()
+  let startKey = toDateKey(new Date(data.planStartedAt))
+  let todayKey = toDateKey(new Date(now))
+  let startMs = startOfDateKey(startKey).getTime()
+  let todayMs = startOfDateKey(todayKey).getTime()
 
-  if (!Number.isFinite(startMs) || !Number.isFinite(examMs) || examMs <= startMs) {
+  if (!Number.isFinite(startMs) || !Number.isFinite(todayMs) || todayMs < startMs) {
     return 0
   }
 
-  let totalDays = (examMs - startMs) / DAY_MS
-  let elapsedDays = clamp((now - startMs) / DAY_MS, 0, totalDays)
+  let elapsedDays = Math.floor((todayMs - startMs) / DAY_MS)
   let quota = Number(data.initialDailyQuota) || 0
 
-  return quota * elapsedDays
+  return quota * (elapsedDays + 1)
 }
 
 function sumByUnit(items: Array<{ unit?: string; amount?: number }>) {
@@ -1169,6 +1706,169 @@ const pageStyles = `
     color: #f87171;
   }
 
+  .future-sim.good {
+    border-color: rgba(34, 197, 94, 0.3);
+    box-shadow:
+      0 0 0 1px rgba(34, 197, 94, 0.08),
+      0 24px 60px rgba(0, 0, 0, 0.35);
+  }
+
+  .future-sim.bad {
+    border-color: rgba(239, 68, 68, 0.35);
+    box-shadow:
+      0 0 0 1px rgba(239, 68, 68, 0.08),
+      0 24px 60px rgba(0, 0, 0, 0.35);
+  }
+
+  .future-text {
+    margin-top: 8px;
+    font-size: 1.15rem;
+    font-weight: 900;
+    line-height: 1.6;
+  }
+
+  .future-text.good {
+    color: #86efac;
+  }
+
+  .future-text.bad {
+    color: #f87171;
+    animation: danger-pulse 900ms ease-in-out infinite;
+  }
+
+  .future-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 18px;
+    margin-top: 14px;
+    color: #a1a1aa;
+    font-size: 0.88rem;
+    font-weight: 800;
+  }
+
+  .buffer-card.safe {
+    border-color: rgba(34, 197, 94, 0.3);
+  }
+
+  .buffer-card.adjusted {
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow:
+      0 0 0 1px rgba(59, 130, 246, 0.08),
+      0 24px 60px rgba(0, 0, 0, 0.35);
+  }
+
+  .buffer-card.overflow {
+    border-color: rgba(239, 68, 68, 0.4);
+  }
+
+  .buffer-text {
+    margin-top: 8px;
+    font-size: 1.08rem;
+    font-weight: 900;
+    line-height: 1.6;
+  }
+
+  .buffer-card.safe .buffer-text {
+    color: #86efac;
+  }
+
+  .buffer-card.adjusted .buffer-text {
+    color: #93c5fd;
+  }
+
+  .buffer-card.overflow .buffer-text {
+    color: #f87171;
+    animation: danger-pulse 900ms ease-in-out infinite;
+  }
+
+  .buffer-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 18px;
+    margin-top: 14px;
+    color: #a1a1aa;
+    font-size: 0.88rem;
+    font-weight: 800;
+  }
+
+  .channel-form {
+    display: grid;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .channel-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .channel-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .channel-tab {
+    display: grid;
+    gap: 4px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.8);
+    padding: 10px 12px;
+    min-width: 180px;
+    text-align: left;
+  }
+
+  .channel-tab.active {
+    border-color: rgba(56, 189, 248, 0.7);
+    background: rgba(8, 47, 73, 0.75);
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.12);
+  }
+
+  .channel-tab span:first-child {
+    color: #e2e8f0;
+    font-weight: 900;
+  }
+
+  .channel-mini {
+    color: #94a3b8;
+    font-size: 0.78rem;
+    font-weight: 700;
+    word-break: break-all;
+  }
+
+  .player-shell {
+    margin-top: 14px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: rgba(2, 6, 23, 0.9);
+    padding: 12px;
+  }
+
+  .player-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    margin-bottom: 10px;
+    color: #94a3b8;
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+
+  .player-meta span:first-child {
+    color: #7dd3fc;
+  }
+
+  .study-frame {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 0;
+    border-radius: 8px;
+    background: #020617;
+  }
+
   .record-flash {
     animation: record-flash 900ms ease;
     border-color: rgba(34, 197, 94, 0.75) !important;
@@ -1270,6 +1970,7 @@ type State = {
   sleepHours: string
   todoAmount: string
   todoUnit: string
+  dailyLimit: string
   alarmTime: string
   lastSpokenDate: string
   planStartedAt: string
@@ -1279,9 +1980,14 @@ type State = {
   taskAmount: string
   taskUnit: string
   taskStartDate: string
+  channelInput: string
+  channelName: string
+  selectedChannelId: string
+  allowedChannels: AllowedChannel[]
   tasks: Task[]
   doneEvents: Record<string, boolean>
   dailyLogs: DailyLog[]
+  bufferNotice: BufferNotice
 }
 
 type AgendaItem = {
@@ -1308,11 +2014,35 @@ type Progress = {
   total: number
   actual: number
   expected: number
-  drift: number
-  driftPercent: number
+  debt: number
+  debtPercent: number
   actualPercent: number
   expectedPercent: number
   unit: string
+}
+
+type BufferNotice = {
+  mode: 'safe' | 'adjusted' | 'overflow'
+  capacity: number
+  load: number
+  movedCount: number
+  date: string
+  message: string
+}
+
+type BufferEventRef = {
+  taskIndex: number
+  eventIndex: number
+  taskId: string
+  offset: number
+  amount: number
+  date: string
+}
+
+type AllowedChannel = {
+  id: string
+  name: string
+  channelId: string
 }
 
 type FieldProps = {
