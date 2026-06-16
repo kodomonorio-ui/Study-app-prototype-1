@@ -215,6 +215,12 @@
         align-items: center;
       }
 
+      .record-form {
+        display: grid;
+        gap: 10px;
+        margin-top: 16px;
+      }
+
       .status {
         margin: 22px 0 0;
         border-left: 4px solid #fb923c;
@@ -341,6 +347,15 @@
       .quota-title strong,
       .hot {
         color: #fb923c;
+      }
+
+      .record-flash {
+        animation: record-flash 900ms ease;
+        border-color: rgba(34, 197, 94, 0.75) !important;
+        box-shadow:
+          0 0 0 1px rgba(34, 197, 94, 0.15),
+          0 0 34px rgba(34, 197, 94, 0.22),
+          0 24px 60px rgba(0, 0, 0, 0.35);
       }
 
       .section-head {
@@ -569,6 +584,23 @@
           opacity: 0.45;
         }
       }
+
+      @keyframes record-flash {
+        0% {
+          transform: scale(1);
+          filter: brightness(1);
+        }
+
+        35% {
+          transform: scale(1.01);
+          filter: brightness(1.3);
+        }
+
+        100% {
+          transform: scale(1);
+          filter: brightness(1);
+        }
+      }
     </style>
   </head>
   <body>
@@ -699,20 +731,28 @@
         </section>
 
         <section class="dashboard-grid">
-          <article class="section-card">
+          <article id="recordCard" class="section-card">
             <p class="kicker">DISPLACEMENT X</p>
             <h2>絶対的達成度</h2>
             <p id="achievementValue" class="progress-value">0.0%</p>
             <div class="progress-track">
               <span id="achievementBar"></span>
             </div>
-            <label style="margin-top: 16px">
-              本日の実績
-              <span class="log-grid">
-                <input id="todayDoneAmount" type="number" min="0" step="0.1" />
-                <span id="todayDoneUnit" class="unit-text">ページ</span>
-              </span>
-            </label>
+            <form id="dailyRecordForm" class="record-form">
+              <label>
+                本日の実績
+                <span class="log-grid">
+                  <input id="todayDoneAmount" type="number" min="0" step="0.1" />
+                  <span id="todayDoneUnit" class="unit-text">ページ</span>
+                </span>
+              </label>
+              <button id="recordTodayButton" class="primary-button" type="submit">
+                本日の実績を記録
+              </button>
+            </form>
+            <p id="recordStatus" class="subtle" style="margin-top: 12px">
+              未記録
+            </p>
           </article>
 
           <article class="section-card">
@@ -808,9 +848,12 @@
         actualBar: document.getElementById('actualBar'),
         progressMeta: document.getElementById('progressMeta'),
         taskList: document.getElementById('taskList'),
+        recordStatus: document.getElementById('recordStatus'),
+        recordCard: document.getElementById('recordCard'),
       }
       const actions = {
         speakButton: document.getElementById('speakButton'),
+        dailyRecordForm: document.getElementById('dailyRecordForm'),
         taskForm: document.getElementById('taskForm'),
         clearDoneButton: document.getElementById('clearDoneButton'),
       }
@@ -834,10 +877,11 @@
           todoUnit: 'ページ',
           alarmTime: '07:00',
           lastSpokenDate: '',
-          planStartedAt: toDateKey(new Date()),
+          planStartedAt: new Date().toISOString(),
+          initialDailyQuota: 0,
           tasks: [],
           doneEvents: {},
-          dailyLogs: {},
+          dailyLogs: [],
         }
       }
 
@@ -857,7 +901,15 @@
 
         merged.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : []
         merged.doneEvents = parsed.doneEvents || {}
-        merged.dailyLogs = parsed.dailyLogs || {}
+        merged.dailyLogs = normalizeDailyLogs(parsed.dailyLogs)
+        merged.planStartedAt = isValidDate(merged.planStartedAt)
+          ? merged.planStartedAt
+          : fallback.planStartedAt
+        merged.initialDailyQuota = Number(merged.initialDailyQuota) || 0
+
+        if (!merged.initialDailyQuota) {
+          merged.initialDailyQuota = computeInitialDailyQuota(merged)
+        }
 
         return merged
       }
@@ -886,18 +938,13 @@
           },
         )
 
-        inputs.todayDoneAmount.addEventListener('input', () => {
-          let key = toDateKey(new Date())
-          state.dailyLogs[key] = {
-            amount: Number(inputs.todayDoneAmount.value) || 0,
-            updatedAt: new Date().toISOString(),
-          }
-          saveState()
-          renderDynamic()
-        })
-
         actions.speakButton.addEventListener('click', () => {
           speakToday()
+        })
+
+        actions.dailyRecordForm.addEventListener('submit', (event) => {
+          event.preventDefault()
+          recordTodayActual()
         })
 
         actions.taskForm.addEventListener('submit', (event) => {
@@ -907,7 +954,7 @@
 
         actions.clearDoneButton.addEventListener('click', () => {
           let key = toDateKey(new Date())
-          delete state.dailyLogs[key]
+          state.dailyLogs = state.dailyLogs.filter((log) => log.date !== key)
           syncTodayDoneInput()
           saveAndRender()
         })
@@ -986,11 +1033,16 @@
           2,
         )} / ${formatNumber(progress.total, 2)} ${progress.unit}`
 
+        let todayRecord = getDailyRecord(toDateKey(new Date()))
+        targets.recordStatus.textContent = todayRecord
+          ? `今日の記録: ${formatNumber(todayRecord.amount, 2)} ${progress.unit}`
+          : '未記録'
+
         let driftPrefix = progress.drift >= 0 ? '+' : ''
         let driftLabel =
           progress.drift >= 0
-            ? `${driftPrefix}${formatNumber(progress.drift, 2)} ${progress.unit} / ${driftPrefix}${formatNumber(progress.driftPercent, 1)}%`
-            : `${formatNumber(progress.drift, 2)} ${progress.unit} / ${formatNumber(progress.driftPercent, 1)}% 危険`
+            ? `${driftPrefix}${formatNumber(progress.drift, 2)} ${progress.unit}進んでいます（順調！ / ${driftPrefix}${formatNumber(progress.driftPercent, 1)}%）`
+            : `-${formatNumber(Math.abs(progress.drift), 2)} ${progress.unit}遅れています（危険！ / -${formatNumber(Math.abs(progress.driftPercent), 1)}%）`
         targets.driftText.textContent = driftLabel
         targets.driftText.classList.toggle('good', progress.drift >= 0)
         targets.driftText.classList.toggle('bad', progress.drift < 0)
@@ -1191,15 +1243,10 @@
 
       function getProgress() {
         let total = Number(state.todoAmount) || 0
-        let actual = Object.values(state.dailyLogs).reduce((sum, log) => {
+        let actual = state.dailyLogs.reduce((sum, log) => {
           return sum + (Number(log.amount) || 0)
         }, 0)
-        let examMs = new Date(state.examAt).getTime()
-        let startMs = startOfDateKey(state.planStartedAt).getTime()
-        let endMs = Number.isFinite(examMs) ? examMs : startMs
-        let duration = Math.max(endMs - startMs, 1)
-        let elapsed = clamp(Date.now() - startMs, 0, duration)
-        let expected = total * (elapsed / duration)
+        let expected = computeIdealAccumulated(state)
         let actualPercent = total > 0 ? (actual / total) * 100 : 0
         let expectedPercent = total > 0 ? (expected / total) * 100 : 0
         let drift = actual - expected
@@ -1261,9 +1308,47 @@
       }
 
       function syncTodayDoneInput() {
-        let key = toDateKey(new Date())
-        let log = state.dailyLogs[key]
+        let log = getDailyRecord(toDateKey(new Date()))
         inputs.todayDoneAmount.value = log ? log.amount : ''
+      }
+
+      function recordTodayActual() {
+        let today = toDateKey(new Date())
+        let amount = Number(inputs.todayDoneAmount.value)
+
+        if (!Number.isFinite(amount) || amount < 0) {
+          targets.recordStatus.textContent = '有効な実績値を入力してください'
+          return
+        }
+
+        let existingIndex = state.dailyLogs.findIndex((log) => log.date === today)
+        let entry = {
+          date: today,
+          amount,
+          updatedAt: new Date().toISOString(),
+        }
+
+        if (existingIndex >= 0) {
+          state.dailyLogs[existingIndex] = entry
+        } else {
+          state.dailyLogs.push(entry)
+        }
+
+        state.dailyLogs.sort((a, b) => a.date.localeCompare(b.date))
+        saveState()
+        syncTodayDoneInput()
+        flashRecordCard()
+        renderDynamic()
+      }
+
+      function getDailyRecord(dateKey) {
+        for (let index = state.dailyLogs.length - 1; index >= 0; index -= 1) {
+          if (state.dailyLogs[index].date === dateKey) {
+            return state.dailyLogs[index]
+          }
+        }
+
+        return null
       }
 
       function sumByUnit(items) {
@@ -1293,10 +1378,83 @@
         return item
       }
 
+      function flashRecordCard() {
+        if (!targets.recordCard) {
+          return
+        }
+
+        targets.recordCard.classList.remove('record-flash')
+        void targets.recordCard.offsetWidth
+        targets.recordCard.classList.add('record-flash')
+
+        window.setTimeout(() => {
+          targets.recordCard.classList.remove('record-flash')
+        }, 900)
+      }
+
       function addDays(dateKey, days) {
         let date = startOfDateKey(dateKey)
         date.setDate(date.getDate() + days)
         return toDateKey(date)
+      }
+
+      function computeIdealAccumulated(currentState) {
+        let startMs = new Date(currentState.planStartedAt).getTime()
+        let nowMs = Date.now()
+        let examMs = new Date(currentState.examAt).getTime()
+
+        if (!Number.isFinite(startMs) || !Number.isFinite(examMs) || examMs <= startMs) {
+          return 0
+        }
+
+        let totalDays = (examMs - startMs) / DAY_MS
+        let elapsedDays = clamp((nowMs - startMs) / DAY_MS, 0, totalDays)
+        let quota = Number(currentState.initialDailyQuota) || 0
+
+        return quota * elapsedDays
+      }
+
+      function computeInitialDailyQuota(currentState) {
+        let startMs = new Date(currentState.planStartedAt).getTime()
+        let examMs = new Date(currentState.examAt).getTime()
+        let total = Number(currentState.todoAmount) || 0
+
+        if (!Number.isFinite(startMs) || !Number.isFinite(examMs) || examMs <= startMs) {
+          return 0
+        }
+
+        let remainingDays = (examMs - startMs) / DAY_MS
+
+        return remainingDays > 0 ? total / remainingDays : 0
+      }
+
+      function normalizeDailyLogs(value) {
+        if (Array.isArray(value)) {
+          return value
+            .filter((item) => item && typeof item.date === 'string')
+            .map((item) => ({
+              date: item.date,
+              amount: Number(item.amount) || 0,
+              updatedAt: item.updatedAt || '',
+            }))
+            .sort((a, b) => a.date.localeCompare(b.date))
+        }
+
+        if (value && typeof value === 'object') {
+          return Object.entries(value)
+            .map(([date, item]) => ({
+              date,
+              amount: Number(item && item.amount) || 0,
+              updatedAt: (item && item.updatedAt) || '',
+            }))
+            .sort((a, b) => a.date.localeCompare(b.date))
+        }
+
+        return []
+      }
+
+      function isValidDate(value) {
+        return Number.isFinite(new Date(value).getTime())
       }
 
       function startOfDateKey(dateKey) {
