@@ -223,7 +223,8 @@ export default function Page() {
   function addAllowedChannel() {
     let parsed = parseChannelInput(state.channelInput, state.channelName)
 
-    if (!parsed) {
+    if (parsed.error) {
+      window.alert(parsed.error)
       return
     }
 
@@ -715,6 +716,9 @@ export default function Page() {
                   <span>Playlist: {selectedPlaylistId}</span>
                   <span>Uploader only</span>
                 </div>
+                <p className="player-hint">
+                  💡 動画の上にマウスを乗せ、右上の【再生リストアイコン（三本線マーク）】をクリックすると、過去の動画一覧から選べます。
+                </p>
                 <iframe
                   className="study-frame"
                   src={playerSrc}
@@ -890,19 +894,40 @@ function normalizeAllowedChannels(value: any): AllowedChannel[] {
 
 function parseChannelInput(channelInput: string, channelName: string) {
   let trimmed = channelInput.trim()
-  let match = trimmed.match(/(UC[a-zA-Z0-9_-]{8,})/)
+  let direct = trimmed.match(/^UC[a-zA-Z0-9_-]{22}$/)
 
-  if (!match) {
-    return null
+  if (direct) {
+    let channelId = direct[0]
+    let name = channelName.trim() || `Channel ${channelId.slice(-6)}`
+
+    return {
+      id: makeChannelId(channelId),
+      name,
+      channelId,
+      error: '',
+    }
   }
 
-  let channelId = match[1]
-  let name = channelName.trim() || `Channel ${channelId.slice(-6)}`
+  let channelMatch = trimmed.match(/\/channel\/(UC[a-zA-Z0-9_-]{22})/i)
+
+  if (channelMatch) {
+    let channelId = channelMatch[1]
+    let name = channelName.trim() || `Channel ${channelId.slice(-6)}`
+
+    return {
+      id: makeChannelId(channelId),
+      name,
+      channelId,
+      error: '',
+    }
+  }
 
   return {
-    id: makeChannelId(channelId),
-    name,
-    channelId,
+    id: '',
+    name: '',
+    channelId: '',
+    error:
+      'チャンネルID（UCから始まる24桁の文字列）を直接入力するか、/channel/UC... 形式のURLを入力してください！※@から始まるURLはID変換サイト等でUCコードを調べて入力してください。',
   }
 }
 
@@ -1859,6 +1884,13 @@ const pageStyles = `
 
   .player-meta span:first-child {
     color: #7dd3fc;
+  }
+
+  .player-hint {
+    margin-bottom: 10px;
+    color: #94a3b8;
+    font-size: 0.84rem;
+    line-height: 1.6;
   }
 
   .study-frame {
