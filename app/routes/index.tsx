@@ -17,6 +17,11 @@ export default function Page() {
   let [state, setState] = useState<State>(getDefaultState)
   let [now, setNow] = useState(() => Date.now())
   let [flash, setFlash] = useState(0)
+  let [selectedChannelId, setSelectedChannelId] = useState('')
+  let [videos, setVideos] = useState<VideoItem[]>([])
+  let [activeVideoId, setActiveVideoId] = useState('')
+  let [videoLoading, setVideoLoading] = useState(false)
+  let [videoError, setVideoError] = useState('')
 
   useEffect(() => {
     let stored = window.localStorage.getItem(STORE_KEY)
@@ -92,6 +97,69 @@ export default function Page() {
       setState(next)
     }
   }, [now, state.tasks, state.doneEvents, state.dailyLimit, state.todoAmount, state.todoUnit])
+
+  useEffect(() => {
+    let nextSelected = state.selectedChannelId || state.allowedChannels[0]?.channelId || ''
+
+    if (nextSelected !== selectedChannelId) {
+      setSelectedChannelId(nextSelected)
+    }
+  }, [state.selectedChannelId, state.allowedChannels, selectedChannelId])
+
+  useEffect(() => {
+    if (!selectedChannelId) {
+      setVideos([])
+      setActiveVideoId('')
+      setVideoError('')
+      return
+    }
+
+    let controller = new AbortController()
+
+    async function loadVideos() {
+      setVideoLoading(true)
+      setVideoError('')
+
+      try {
+        let response = await fetch(
+          `/api/youtube?channel_id=${encodeURIComponent(selectedChannelId)}`,
+          { signal: controller.signal },
+        )
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+
+        let xml = await response.text()
+        let nextVideos = parseYoutubeFeed(xml)
+
+        setVideos(nextVideos)
+        setActiveVideoId((current) => {
+          if (current && nextVideos.some((video) => video.id === current)) {
+            return current
+          }
+
+          return nextVideos[0]?.id || ''
+        })
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return
+        }
+
+        setVideos([])
+        setActiveVideoId('')
+        setVideoError('動画一覧の取得に失敗しました。チャンネルIDを確認してください。')
+      } finally {
+        if (!controller.signal.aborted) {
+          setVideoLoading(false)
+        }
+      }
+    }
+
+    loadVideos()
+
+    return () => controller.abort()
+  }, [selectedChannelId])
 
   let metrics = getMetrics(state, now)
   let progress = getProgress(state, now)
@@ -243,9 +311,12 @@ export default function Page() {
         channelName: '',
       }
     })
+
+    setSelectedChannelId(parsed.channelId)
   }
 
   function selectChannel(channelId: string) {
+    setSelectedChannelId(channelId)
     setState((current) => ({
       ...current,
       selectedChannelId: channelId,
@@ -261,6 +332,7 @@ export default function Page() {
         ? nextChannels[0]?.channelId || ''
         : current.selectedChannelId
 
+      setSelectedChannelId(nextSelected)
       return {
         ...current,
         allowedChannels: nextChannels,
@@ -270,12 +342,9 @@ export default function Page() {
   }
 
   let selectedChannel = state.allowedChannels.find(
-    (channel) => channel.channelId === state.selectedChannelId,
+    (channel) => channel.channelId === selectedChannelId,
   )
-  let selectedPlaylistId = selectedChannel ? toUploadPlaylistId(selectedChannel.channelId) : ''
-  let playerSrc = selectedPlaylistId
-    ? `https://www.youtube.com/embed/videoseries?list=${selectedPlaylistId}&rel=0&modestbranding=1`
-    : ''
+  let activeVideo = videos.find((video) => video.id === activeVideoId)
 
   let rootClass = flash ? 'record-flash' : ''
 
@@ -698,7 +767,7 @@ export default function Page() {
                     key={channel.id}
                     type="button"
                     className={`channel-tab ${
-                      channel.channelId === state.selectedChannelId ? 'active' : ''
+                      channel.channelId === selectedChannelId ? 'active' : ''
                     }`}
                     onClick={() => selectChannel(channel.channelId)}
                   >
@@ -713,20 +782,50 @@ export default function Page() {
               <div className="player-shell">
                 <div className="player-meta">
                   <span>{selectedChannel.name}</span>
-                  <span>Playlist: {selectedPlaylistId}</span>
-                  <span>Uploader only</span>
+                  <span>{selectedChannel.channelId}</span>
+                  <span>{videos.length} videos</span>
                 </div>
                 <p className="player-hint">
-                  💡 動画の上にマウスを乗せ、右上の【再生リストアイコン（三本線マーク）】をクリックすると、過去の動画一覧から選べます。
+                  💡 下の動画カードをクリックすると、再生中の動画が切り替わります。チャンネル内の動画だけを並べています。
                 </p>
-                <iframe
-                  className="study-frame"
-                  src={playerSrc}
-                  title={`${selectedChannel.name} - YouTube playlist`}
-                  allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allowFullScreen
-                />
+                {videoLoading ? (
+                  <p className="video-empty">動画を読み込み中です…</p>
+                ) : videoError ? (
+                  <p className="video-empty bad">{videoError}</p>
+                ) : activeVideo ? (
+                  <div className="player-frame-wrap">
+                    <iframe
+                      className="study-frame"
+                      src={`https://www.youtube.com/embed/${activeVideo.id}?rel=0&modestbranding=1`}
+                      title={activeVideo.title}
+                      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allowFullScreen
+                    />
+                    <p className="player-now">
+                      再生中: {activeVideo.title}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="video-empty">このチャンネルの動画を読み込むと再生できます。</p>
+                )}
+
+                <div className="video-grid">
+                  {videos.map((video) => (
+                    <button
+                      key={video.id}
+                      type="button"
+                      className={`video-card ${video.id === activeVideoId ? 'active' : ''}`}
+                      onClick={() => setActiveVideoId(video.id)}
+                    >
+                      <img className="video-thumb" src={video.thumbnail} alt="" />
+                      <div className="video-copy">
+                        <p className="video-title">{video.title}</p>
+                        <p className="video-meta">{video.published || video.id}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
                 <button
                   className="ghost-button"
                   type="button"
@@ -843,7 +942,10 @@ function normalizeState(current: State): State {
     next.initialDailyQuota = computeInitialDailyQuota(next)
   }
 
-  if (!next.selectedChannelId && next.allowedChannels.length > 0) {
+  if (
+    next.allowedChannels.length > 0 &&
+    !next.allowedChannels.some((channel) => channel.channelId === next.selectedChannelId)
+  ) {
     next.selectedChannelId = next.allowedChannels[0].channelId
   }
 
@@ -929,6 +1031,32 @@ function parseChannelInput(channelInput: string, channelName: string) {
     error:
       'チャンネルID（UCから始まる24桁の文字列）を直接入力するか、/channel/UC... 形式のURLを入力してください！※@から始まるURLはID変換サイト等でUCコードを調べて入力してください。',
   }
+}
+
+function parseYoutubeFeed(xml: string): VideoItem[] {
+  let doc = new DOMParser().parseFromString(xml, 'text/xml')
+
+  if (doc.querySelector('parsererror')) {
+    return []
+  }
+
+  return Array.from(doc.getElementsByTagName('entry'))
+    .map((entry) => {
+      let id = entry.getElementsByTagNameNS('*', 'videoId')[0]?.textContent?.trim() || ''
+      let title = entry.getElementsByTagName('title')[0]?.textContent?.trim() || id
+      let published = entry.getElementsByTagName('published')[0]?.textContent?.trim() || ''
+      let thumb =
+        entry.getElementsByTagNameNS('*', 'thumbnail')[0]?.getAttribute('url') ||
+        (id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : '')
+
+      return {
+        id,
+        title,
+        published,
+        thumbnail: thumb,
+      }
+    })
+    .filter((video) => Boolean(video.id))
 }
 
 function toUploadPlaylistId(channelId: string) {
@@ -1901,6 +2029,81 @@ const pageStyles = `
     background: #020617;
   }
 
+  .player-frame-wrap {
+    display: grid;
+    gap: 8px;
+  }
+
+  .player-now {
+    color: #cbd5e1;
+    font-size: 0.84rem;
+    font-weight: 800;
+  }
+
+  .video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .video-card {
+    display: grid;
+    gap: 8px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.82);
+    padding: 8px;
+    text-align: left;
+  }
+
+  .video-card.active {
+    border-color: rgba(248, 113, 113, 0.7);
+    box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.12);
+  }
+
+  .video-thumb {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 6px;
+    background: #020617;
+  }
+
+  .video-copy {
+    display: grid;
+    gap: 4px;
+  }
+
+  .video-title {
+    color: #e2e8f0;
+    font-size: 0.86rem;
+    font-weight: 900;
+    line-height: 1.4;
+  }
+
+  .video-meta {
+    color: #94a3b8;
+    font-size: 0.76rem;
+    font-weight: 700;
+  }
+
+  .video-empty {
+    border: 1px dashed #334155;
+    border-radius: 8px;
+    padding: 14px;
+    color: #94a3b8;
+    font-size: 0.9rem;
+    font-weight: 800;
+    line-height: 1.6;
+    background: rgba(2, 6, 23, 0.55);
+  }
+
+  .video-empty.bad {
+    border-color: rgba(248, 113, 113, 0.5);
+    color: #fca5a5;
+  }
+
   .record-flash {
     animation: record-flash 900ms ease;
     border-color: rgba(34, 197, 94, 0.75) !important;
@@ -2075,6 +2278,13 @@ type AllowedChannel = {
   id: string
   name: string
   channelId: string
+}
+
+type VideoItem = {
+  id: string
+  title: string
+  published: string
+  thumbnail: string
 }
 
 type FieldProps = {
