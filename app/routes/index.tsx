@@ -132,6 +132,11 @@ export default function Page() {
         }
 
         let xml = await response.text()
+
+        if (!isYoutubeFeed(xml)) {
+          throw new Error('Invalid YouTube feed')
+        }
+
         let nextVideos = parseYoutubeFeed(xml)
 
         setVideos(nextVideos)
@@ -1000,7 +1005,7 @@ async function parseChannelInput(channelInput: string, channelName: string) {
   let channelId = getChannelIdFromInput(trimmed)
   let resolveError = ''
 
-  if (!channelId && trimmed) {
+  if (trimmed) {
     let resolved = await resolveChannelId(trimmed)
     channelId = resolved.channelId
     resolveError = resolved.error
@@ -1100,6 +1105,16 @@ function getChannelInputName(value: string) {
 
 function hasProtocol(value: string) {
   return /^https?:\/\//i.test(value)
+}
+
+function isYoutubeFeed(xml: string) {
+  let doc = new DOMParser().parseFromString(xml, 'text/xml')
+
+  if (doc.querySelector('parsererror')) {
+    return false
+  }
+
+  return doc.documentElement.tagName === 'feed'
 }
 
 function parseYoutubeFeed(xml: string): VideoItem[] {

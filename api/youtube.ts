@@ -41,21 +41,17 @@ async function loadFeed(channelId: string) {
     return new Response('Invalid channel_id.', { status: 400 })
   }
 
-  let feedUrl = new URL(FEED_URL)
-  feedUrl.searchParams.set('channel_id', channelId)
-
-  let response = await fetch(feedUrl, {
-    headers: {
-      accept: 'application/atom+xml, application/xml;q=0.9, text/xml;q=0.8',
-      'user-agent': 'StudyTube/1.0',
-    },
-  })
+  let response = await fetchFeed(channelId)
 
   if (!response.ok) {
-    return new Response('Failed to fetch YouTube feed.', { status: 502 })
+    return new Response('YouTube feed was not found for this channel_id.', { status: 404 })
   }
 
   let xml = await response.text()
+
+  if (!isFeedXml(xml)) {
+    return new Response('YouTube did not return a feed for this channel_id.', { status: 502 })
+  }
 
   return new Response(xml, {
     headers: {
@@ -69,7 +65,7 @@ async function resolveInput(input: string) {
   let direct = findChannelId(input)
 
   if (direct) {
-    return json({ channelId: direct })
+    return verifyChannelId(direct)
   }
 
   let channelUrl = getChannelUrl(input)
@@ -91,13 +87,45 @@ async function resolveInput(input: string) {
   }
 
   let html = await response.text()
-  let channelId = findChannelId(html)
+  let channelId = findPageChannelId(html) || findChannelId(html)
 
   if (!channelId) {
     return json({ error: 'Could not find a UC... channel ID for this input.' }, 404)
   }
 
+  return verifyChannelId(channelId)
+}
+
+async function verifyChannelId(channelId: string) {
+  if (!CHANNEL_ID_RE.test(channelId)) {
+    return json({ error: 'Invalid YouTube channel ID.' }, 400)
+  }
+
+  let response = await fetchFeed(channelId)
+
+  if (!response.ok) {
+    return json({ error: 'YouTube RSS was not found for this channel ID. Try the @handle or channel URL.' }, 404)
+  }
+
+  let xml = await response.text()
+
+  if (!isFeedXml(xml)) {
+    return json({ error: 'YouTube did not return RSS for this channel ID.' }, 502)
+  }
+
   return json({ channelId })
+}
+
+async function fetchFeed(channelId: string) {
+  let feedUrl = new URL(FEED_URL)
+  feedUrl.searchParams.set('channel_id', channelId)
+
+  return fetch(feedUrl, {
+    headers: {
+      accept: 'application/atom+xml, application/xml;q=0.9, text/xml;q=0.8',
+      'user-agent': 'StudyTube/1.0',
+    },
+  })
 }
 
 function getChannelUrl(input: string) {
@@ -129,6 +157,30 @@ function getChannelUrl(input: string) {
 function findChannelId(value: string) {
   let match = value.match(CHANNEL_ID_SCAN_RE)
   return match && CHANNEL_ID_RE.test(match[0]) ? match[0] : ''
+}
+
+function findPageChannelId(html: string) {
+  let patterns = [
+    /window\['ytCommand'\][\s\S]{0,2000}?"browseEndpoint":\{"browseId":"(UC[a-zA-Z0-9_-]{22})"/,
+    /"webPageType":"WEB_PAGE_TYPE_CHANNEL"[\s\S]{0,1000}?"browseEndpoint":\{"browseId":"(UC[a-zA-Z0-9_-]{22})"/,
+    /<meta itemprop="channelId" content="(UC[a-zA-Z0-9_-]{22})"/,
+    /"channelId":"(UC[a-zA-Z0-9_-]{22})"/,
+    /"browseEndpoint":\{"browseId":"(UC[a-zA-Z0-9_-]{22})"/,
+  ]
+
+  for (let pattern of patterns) {
+    let match = html.match(pattern)
+
+    if (match && CHANNEL_ID_RE.test(match[1])) {
+      return match[1]
+    }
+  }
+
+  return ''
+}
+
+function isFeedXml(xml: string) {
+  return /<feed[\s>]/.test(xml)
 }
 
 function isYoutubeHost(hostname: string) {
