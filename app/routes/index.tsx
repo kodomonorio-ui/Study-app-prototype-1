@@ -5,6 +5,7 @@ import { TriangleAlertIcon } from 'lucide-react'
 const STORE_KEY = 'exam-countdown-v1'
 const DAY_MS = 24 * 60 * 60 * 1000
 const HOUR_MS = 60 * 60 * 1000
+const CHANNEL_ID_RE = /^UC[a-zA-Z0-9_-]{22}$/
 const REVIEW_STEPS = [
   { offset: 0, label: '初学' },
   { offset: 1, label: '第1回復習' },
@@ -288,8 +289,8 @@ export default function Page() {
     })
   }
 
-  function addAllowedChannel() {
-    let parsed = parseChannelInput(state.channelInput, state.channelName)
+  async function addAllowedChannel() {
+    let parsed = await parseChannelInput(state.channelInput, state.channelName)
 
     if (parsed.error) {
       window.alert(parsed.error)
@@ -994,27 +995,19 @@ function normalizeAllowedChannels(value: any): AllowedChannel[] {
     }))
 }
 
-function parseChannelInput(channelInput: string, channelName: string) {
+async function parseChannelInput(channelInput: string, channelName: string) {
   let trimmed = channelInput.trim()
-  let direct = trimmed.match(/^UC[a-zA-Z0-9_-]{22}$/)
+  let channelId = getChannelIdFromInput(trimmed)
+  let resolveError = ''
 
-  if (direct) {
-    let channelId = direct[0]
-    let name = channelName.trim() || `Channel ${channelId.slice(-6)}`
-
-    return {
-      id: makeChannelId(channelId),
-      name,
-      channelId,
-      error: '',
-    }
+  if (!channelId && trimmed) {
+    let resolved = await resolveChannelId(trimmed)
+    channelId = resolved.channelId
+    resolveError = resolved.error
   }
 
-  let channelMatch = trimmed.match(/\/channel\/(UC[a-zA-Z0-9_-]{22})/i)
-
-  if (channelMatch) {
-    let channelId = channelMatch[1]
-    let name = channelName.trim() || `Channel ${channelId.slice(-6)}`
+  if (channelId) {
+    let name = channelName.trim() || getChannelInputName(trimmed) || `Channel ${channelId.slice(-6)}`
 
     return {
       id: makeChannelId(channelId),
@@ -1028,9 +1021,85 @@ function parseChannelInput(channelInput: string, channelName: string) {
     id: '',
     name: '',
     channelId: '',
-    error:
-      'チャンネルID（UCから始まる24桁の文字列）を直接入力するか、/channel/UC... 形式のURLを入力してください！※@から始まるURLはID変換サイト等でUCコードを調べて入力してください。',
+    error: resolveError || 'YouTubeのチャンネルURL、@ハンドル名、またはUC...から始まるチャンネルIDを入力してください。',
   }
+}
+
+function getChannelIdFromInput(value: string) {
+  let trimmed = value.trim()
+
+  if (CHANNEL_ID_RE.test(trimmed)) {
+    return trimmed
+  }
+
+  let channelMatch = trimmed.match(/\/channel\/(UC[a-zA-Z0-9_-]{22})/i)
+
+  if (channelMatch) {
+    return channelMatch[1]
+  }
+
+  try {
+    let url = new URL(hasProtocol(trimmed) ? trimmed : `https://${trimmed}`)
+    let channelId = url.searchParams.get('channel_id') || ''
+
+    if (CHANNEL_ID_RE.test(channelId)) {
+      return channelId
+    }
+  } catch {
+    return ''
+  }
+
+  return ''
+}
+
+async function resolveChannelId(input: string): Promise<ChannelResolveResult> {
+  try {
+    let response = await fetch(`/api/youtube?input=${encodeURIComponent(input)}`)
+    let payload = await response.json()
+
+    if (response.ok && CHANNEL_ID_RE.test(payload.channelId || '')) {
+      return {
+        channelId: payload.channelId,
+        error: '',
+      }
+    }
+
+    return {
+      channelId: '',
+      error: payload.error || 'YouTubeチャンネルを解決できませんでした。',
+    }
+  } catch {
+    return {
+      channelId: '',
+      error: 'YouTubeチャンネルを解決できませんでした。',
+    }
+  }
+}
+
+function getChannelInputName(value: string) {
+  let trimmed = value.trim()
+  let handleMatch = trimmed.match(/(?:^|\/)(@[a-zA-Z0-9._-]+)/)
+
+  if (handleMatch) {
+    return handleMatch[1]
+  }
+
+  try {
+    let url = new URL(hasProtocol(trimmed) ? trimmed : `https://${trimmed}`)
+    let segment = url.pathname.split('/').filter(Boolean)[0] || ''
+
+    if (segment && segment !== 'channel') {
+      return decodeURIComponent(segment)
+    }
+  } catch {
+    return ''
+  }
+
+  return ''
+}
+
+function hasProtocol(value: string) {
+  return /^https?:\/\//i.test(value)
 }
 
 function parseYoutubeFeed(xml: string): VideoItem[] {
@@ -2285,6 +2354,11 @@ type VideoItem = {
   title: string
   published: string
   thumbnail: string
+}
+
+type ChannelResolveResult = {
+  channelId: string
+  error: string
 }
 
 type FieldProps = {
